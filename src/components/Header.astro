@@ -1,0 +1,374 @@
+---
+// Componente Header con navegación e identidad institucional
+export const prerender = false; // Consulta en tiempo real
+
+import { db, EstadoDelegacion } from 'astro:db';
+
+// Consultar el estado actual de la delegación
+const estadoQuery = await db.select().from(EstadoDelegacion);
+const estaAbierto = estadoQuery.length > 0 ? estadoQuery[0].abierto : false;
+---
+
+<header class="top-header">
+  <div class="header-content">
+    
+    <!-- Logo e Identidad de la Delegación (Izquierda) -->
+    <a href="/" class="brand">
+      <img 
+        src="/Parcialitos Transparente.png" 
+        alt="Logo DEETSIUS Parcialitos" 
+        class="logo-DEETSIUS-main"
+      />
+      <div class="brand-text">
+        <span class="DEETSIUS-title"><strong>D</strong>elegación de <strong>E</strong>studiantes</span>
+        <span class="DEETSIUS-sub">Escuela Técnica Superior de Ingeniería</span>
+        <span class="DEETSIUS-sub us-text">Universidad de Sevilla</span>
+      </div>
+    </a>
+
+    <!-- Indicador Estado Delegación (Tiempo Real) -->
+    <div class="status-indicator-wrapper">
+      <div class={`status-badge ${estaAbierto ? 'status-open' : 'status-closed'}`}>
+        <span class="status-dot"></span>
+        <span class="status-text">{estaAbierto ? 'ABIERTO AHORA' : 'CERRADO'}</span>
+      </div>
+    </div>
+
+    <!-- Navegación Central -->
+    <nav class="nav-links">
+      <a href="/servicios">SERVICIOS</a>
+      <a href="/documentacion">DOCUMENTACIÓN</a>
+      <a href="/equipo">NUESTRO EQUIPO</a>
+      <a href="/eventos">EVENTOS</a>
+      
+      <!-- Botón Destacado Portal del Miembro -->
+      <a href="/login" class="btn-portal">PORTAL DEL MIEMBRO</a>
+    </nav>
+
+    <!-- Logos Institucionales Clicables (Derecha) -->
+    <div class="institutional-logos">
+      <a href="https://etsi.us.es/" target="_blank" rel="noopener noreferrer" class="inst-logo-wrapper" title="Ir a la web de la ETSI">
+        <img src="/logo-ETSI.png" alt="Logo ETSI" class="logo-inst"/>
+      </a>
+      <a href="https://cadus.us.es/" target="_blank" rel="noopener noreferrer" class="inst-logo-wrapper" title="Ir a la web del CADUS">
+        <img src="/logo-CADUS.png" alt="Logo CADUS" class="logo-inst"/>
+      </a>
+      <a href="https://www.us.es/" target="_blank" rel="noopener noreferrer" class="inst-logo-wrapper" title="Ir a la web de la Universidad de Sevilla">
+        <img src="/logo-US.png" alt="Logo Universidad de Sevilla" class="logo-inst"/>
+      </a>
+    </div>
+
+  </div>
+  <!-- Línea divisoria naranja -->
+  <div class="orange-bar"></div>
+</header>
+
+<style>
+  .top-header {
+    background-color: #ffffff;
+    width: 100%;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+  }
+
+  .header-content {
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 0.6rem 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    text-decoration: none;
+    min-width: 0;
+  }
+
+  .logo-DEETSIUS-main {
+    width: 45px;
+    height: 45px;
+    object-fit: contain;
+    flex-shrink: 0;
+  }
+
+  .brand-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+  }
+
+  .DEETSIUS-title {
+    color: #1e88e5;
+    font-size: 0.95rem;
+  }
+
+  .DEETSIUS-sub {
+    color: #475569;
+    font-size: 0.78rem;
+    font-weight: 500;
+  }
+
+  .us-text {
+    color: #f58220;
+    font-weight: 600;
+  }
+
+  /* INDICADOR DE ESTADO EN HEADER */
+  .status-indicator-wrapper {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.35rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+  }
+
+  .status-open {
+    background-color: #f0fdf4;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+  }
+
+  .status-closed {
+    background-color: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  .status-open .status-dot {
+    background-color: #4caf50;
+    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.25);
+    animation: pulse-green 2s infinite;
+  }
+
+  .status-closed .status-dot {
+    background-color: #e57373;
+    box-shadow: 0 0 0 2px rgba(229, 115, 115, 0.25);
+  }
+
+  @keyframes pulse-green {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.5); }
+    70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(76, 175, 80, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+  }
+
+  /* NAVEGACIÓN */
+  .nav-links {
+    display: flex;
+    gap: 1.5rem;
+    align-items: center;
+  }
+
+  .nav-links a {
+    color: #1e293b;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
+    transition: color 0.2s;
+    white-space: nowrap;
+  }
+
+  .nav-links a:hover {
+    color: #1e88e5;
+  }
+
+  .btn-portal {
+    background-color: #1e88e5 !important;
+    color: #ffffff !important;
+    padding: 0.45rem 0.85rem;
+    border-radius: 8px;
+    font-size: 0.78rem !important;
+    transition: all 0.2s ease !important;
+  }
+
+  .btn-portal:hover {
+    background-color: #1565c0 !important;
+    transform: translateY(-1px);
+  }
+
+  /* LOGOS INSTITUCIONALES */
+  .institutional-logos {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    flex-shrink: 0;
+  }
+
+  .inst-logo-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+  }
+
+  .inst-logo-wrapper:hover {
+    transform: scale(1.08);
+    opacity: 0.85;
+  }
+
+  .logo-inst {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+
+  .orange-bar {
+    height: 3px;
+    background-color: #f58220;
+    width: 100%;
+  }
+
+  /* ==========================================================================
+     REDUCCIÓN PARA LAPTOPS Y TABLETS GRANDES (MAX-WIDTH: 1100PX)
+     ========================================================================== */
+  @media (max-width: 1100px) {
+    .header-content {
+      padding: 0.5rem 0.8rem;
+      gap: 0.8rem;
+    }
+
+    .nav-links {
+      gap: 1rem;
+    }
+
+    .nav-links a {
+      font-size: 0.8rem;
+    }
+
+    .logo-US-main {
+      width: 38px;
+      height: 38px;
+    }
+
+    .inst-logo-wrapper {
+      width: 32px;
+      height: 32px;
+    }
+  }
+
+  /* ==========================================================================
+     DISPOSITIVOS MÓVILES (MAX-WIDTH: 850PX) - CABECERA COMPACTA EN FILAS
+     ========================================================================== */
+  @media (max-width: 850px) {
+    .header-content {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      row-gap: 0.4rem;
+      column-gap: 0.5rem;
+      padding: 0.4rem 0.6rem;
+    }
+
+    /* Fila 1 (Izquierda): Brand comprimido */
+    .brand {
+      grid-column: 1;
+      gap: 0.5rem;
+    }
+
+    .logo-DEETSIUS-main {
+      width: 32px;
+      height: 32px;
+    }
+
+    .DEETSIUS-title {
+      font-size: 0.82rem;
+      line-height: 1.1;
+    }
+
+    .DEETSIUS-sub {
+      font-size: 0.68rem;
+      line-height: 1.1;
+    }
+
+    /* Fila 1 (Derecha): Indicador de Estado */
+    .status-indicator-wrapper {
+      grid-column: 2;
+      justify-self: end;
+    }
+
+    .status-badge {
+      padding: 0.22rem 0.55rem;
+      font-size: 0.68rem;
+      gap: 0.3rem;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+    }
+
+    /* Fila 2: Enlaces de navegación con scroll horizontal limpio sin deformar la altura */
+    .nav-links {
+      grid-column: 1 / -1;
+      display: flex;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 0.3rem 0;
+      gap: 0.6rem;
+      scrollbar-width: none; /* Oculta barra de scroll en Firefox */
+    }
+
+    .nav-links::-webkit-scrollbar {
+      display: none; /* Oculta barra de scroll en Chrome/Safari */
+    }
+
+    .nav-links a {
+      font-size: 0.72rem;
+      padding: 0.25rem 0.5rem;
+      background: #f8fafc;
+      border-radius: 6px;
+      border: 1px solid #e2e8f0;
+      flex-shrink: 0;
+    }
+
+    .btn-portal {
+      font-size: 0.72rem !important;
+      padding: 0.25rem 0.65rem !important;
+    }
+
+    /* Fila 3: Logos Institucionales ultracompactos centrados abajo */
+    .institutional-logos {
+      grid-column: 1 / -1;
+      justify-content: center;
+      gap: 1rem;
+      padding-top: 0.1rem;
+    }
+
+    .inst-logo-wrapper {
+      width: 24px;
+      height: 24px;
+    }
+  }
+
+  /* Ajuste para móviles muy pequeños (<480px) */
+  @media (max-width: 480px) {
+    .DEETSIUS-sub {
+      display: none; /* Oculta el subtítulo de la universidad para no saturar */
+    }
+  }
+</style>

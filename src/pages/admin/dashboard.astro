@@ -1,0 +1,1520 @@
+---
+// Petición al servidor en tiempo real
+// Petición al servidor en tiempo real
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import crypto from 'node:crypto';
+import { 
+  db, 
+  Noticias, 
+  Prestamos, 
+  RegPrestamos, 
+  ObjetosCustodiados, 
+  ReportesObjetosPerdidos,
+  Incidencias, 
+  EstadoDelegacion,
+  SesionesLog,
+  eq, 
+  desc,
+  gte
+} from 'astro:db';
+
+// FUNCIÓN PARA VERIFICAR LA FIRMA HMAC-SHA256 DE LA COOKIE
+function verifySignedValue(signedValue: string, secret: string): string | null {
+  const parts = signedValue.split('.');
+  if (parts.length !== 2) return null;
+  const [value, signature] = parts;
+
+  const expectedSignature = crypto.createHmac('sha256', secret).update(value).digest('hex');
+
+  if (
+    signature.length === expectedSignature.length && 
+    crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))
+  ) {
+    return value;
+  }
+  return null;
+}
+
+// CONTROL DE ACCESO Y SEGURIDAD MEDIANTE COOKIES Y HMAC
+const sessionToken = Astro.cookies.get('admin_session')?.value;
+const ADMIN_SECRET = import.meta.env.ADMIN_SECRET || process.env.ADMIN_SECRET;
+
+const authData = (sessionToken && ADMIN_SECRET) 
+  ? verifySignedValue(sessionToken, ADMIN_SECRET) 
+  : null;
+
+if (!authData || !authData.includes(':')) {
+  return Astro.redirect('/login?error=' + encodeURIComponent('Sesión inválida o expirada. Por favor, inicia sesión.'));
+}
+
+const [activeUvus, activeSessionId] = authData.split(':');
+
+// Actualizar última actividad del usuario en esta sesión
+await db.update(SesionesLog)
+  .set({ ultimaActividad: new Date() })
+  .where(eq(SesionesLog.sessionId, activeSessionId));
+
+const url = new URL(Astro.request.url);
+let mensajeExito = url.searchParams.get('success') || '';
+let mensajeError = url.searchParams.get('error') || '';
+
+// Procesamiento de peticiones POST del panel de control
+if (Astro.request.method === 'POST') {
+  try {
+    const formData = await Astro.request.formData();
+    const action = formData.get('action')?.toString();
+
+    // 0.A CERRAR SESIÓN (LOGOUT)
+    if (action === 'logout') {
+      await db.update(SesionesLog)
+        .set({ finSesion: new Date() })
+        .where(eq(SesionesLog.sessionId, activeSessionId));
+
+      Astro.cookies.delete('admin_session', { path: '/' });
+      return Astro.redirect('/login?success=' + encodeURIComponent('Sesión cerrada correctamente.'));
+    }
+    // 0.B ALTERNAR ESTADO DE LA DELEGACIÓN
+    else if (action === 'toggle_estado_delegacion') {
+      const estadoActual = formData.get('nuevo_estado') === 'true';
+
+      const registro = await db.select().from(EstadoDelegacion);
+      if (registro.length > 0) {
+        await db.update(EstadoDelegacion)
+          .set({ abierto: estadoActual, actualizadoEl: new Date() })
+          .where(eq(EstadoDelegacion.id, registro[0].id));
+      } else {
+        await db.insert(EstadoDelegacion).values({
+          abierto: estadoActual,
+          actualizadoEl: new Date(),
+        });
+      }
+
+      const estadoTexto = estadoActual ? 'ABIERTA' : 'CERRADA';
+      return Astro.redirect(`${url.pathname}?success=${encodeURIComponent(`Estado de la delegación actualizado a: ${estadoTexto}`)}`);
+    }
+
+    // 1. PUBLICAR NOTICIA / AVISO
+    else if (action === 'crear_noticia') {
+      const titulo = formData.get('titulo')?.toString().trim() || '';
+      const subtitulo = formData.get('subtitulo')?.toString().trim() || null;
+      const categoria = formData.get('categoria')?.toString() || 'General';
+      const contenido = formData.get('contenido')?.toString().trim() || '';
+      const resumen = formData.get('resumen')?.toString().trim() || null;
+      const urlImagen = formData.get('urlImagen')?.toString().trim() || null;
+      const destacada = formData.get('destacada') === 'on' || formData.get('destacada') === 'true';
+
+      if (titulo && contenido) {
+        await db.insert(Noticias).values({
+          titulo,
+          subtitulo,
+          categoria,
+          contenido,
+          resumen,
+          urlImagen,
+          destacada,
+          autor: 'Comisión de Comunicación DEETSIUS',
+          fechaPublicacion: new Date(),
+        });
+        return Astro.redirect(`${url.pathname}?success=${encodeURIComponent('Noticia o aviso publicado correctamente.')}`);
+      } else {
+        return Astro.redirect(`${url.pathname}?error=${encodeURIComponent('El título y el contenido son obligatorios.')}`);
+      }
+    }
+
+    // 2. ELIMINAR NOTICIA
+    else if (action === 'eliminar_noticia') {
+      const noticiaId = Number(formData.get('noticia_id'));
+      if (noticiaId) {
+        await db.delete(Noticias).where(eq(Noticias.id, noticiaId));
+        return Astro.redirect(`${url.pathname}?success=${encodeURIComponent('Noticia eliminada correctamente.')}`);
+      }
+    }
+
+    // 3. REGISTRAR PRÉSTAMO DE MATERIAL
+    else if (action === 'solicitar_prestamo') {
+      const alumno = formData.get('alumno')?.toString().trim() || '';
+      const dni = formData.get('dni')?.toString().trim().toUpperCase() || '';
+      const telefono = formData.get('telefono')?.toString().trim() || '';
+      const curso = formData.get('curso')?.toString().trim() || '';
+      const tipoElemento = formData.get('tipoElemento')?.toString().trim() || '';
+
+      if (alumno && dni && telefono && curso && tipoElemento) {
+        const incidenciasPrevias = await db.select().from(Incidencias).where(eq(Incidencias.dni, dni));
+
+        if (incidenciasPrevias.length > 0) {
+          return Astro.redirect(`${url.pathname}?error=${encodeURIComponent(`Préstamo rechazado: El alumno con DNI "${dni}" figura en la lista negra.`)}`);
+        } else {
+          const materialList = await db.select().from(Prestamos).where(eq(Prestamos.nombre, tipoElemento));
+
+          if (materialList.length > 0 && materialList[0].disponibles > 0) {
+            const material = materialList[0];
+
+            await db.insert(RegPrestamos).values({
+              alumno,
+              dni,
+              telefono,
+              curso,
+              tipoElemento,
+              fechaPrestamo: new Date(),
+              estado: 'Activo'
+            });
+
+            const nuevosDisponibles = Math.max(0, material.disponibles - 1);
+            await db.update(Prestamos)
+              .set({ disponibles: nuevosDisponibles })
+              .where(eq(Prestamos.id, material.id));
+
+            return Astro.redirect(`${url.pathname}?success=${encodeURIComponent(`Préstamo de "${tipoElemento}" concedido a ${alumno}.`)}`);
+          } else {
+            return Astro.redirect(`${url.pathname}?error=${encodeURIComponent('No quedan unidades disponibles de este material.')}`);
+          }
+        }
+      } else {
+        return Astro.redirect(`${url.pathname}?error=${encodeURIComponent('Por favor, rellena todos los campos del formulario.')}`);
+      }
+    }
+
+    // 4. REGISTRAR DEVOLUCIÓN DE MATERIAL
+    else if (action === 'devolver_prestamo') {
+      const prestamoId = Number(formData.get('prestamo_id'));
+      const tipoElemento = formData.get('tipoElemento')?.toString() || '';
+
+      if (prestamoId) {
+        await db.update(RegPrestamos)
+          .set({ estado: 'Finalizado' })
+          .where(eq(RegPrestamos.id, prestamoId));
+
+        const materialList = await db.select().from(Prestamos).where(eq(Prestamos.nombre, tipoElemento));
+        if (materialList.length > 0) {
+          const material = materialList[0];
+          const nuevosDisponibles = Math.min(material.total, material.disponibles + 1);
+          await db.update(Prestamos)
+            .set({ disponibles: nuevosDisponibles })
+            .where(eq(Prestamos.id, material.id));
+        }
+
+        return Astro.redirect(`${url.pathname}?success=${encodeURIComponent('Devolución registrada correctamente.')}`);
+      }
+    }
+
+    // 4.B MARCAR INCIDENCIA DESDE PRÉSTAMO
+    else if (action === 'marcar_incidencia_prestamo') {
+      const prestamoId = Number(formData.get('prestamo_id'));
+      const alumno = formData.get('alumno')?.toString().trim() || '';
+      const dni = formData.get('dni')?.toString().trim().toUpperCase() || '';
+      const tipoElemento = formData.get('tipoElemento')?.toString().trim() || 'Objeto';
+
+      if (alumno && dni && prestamoId) {
+        await db.insert(Incidencias).values({
+          alumno,
+          dni,
+          tipoElemento,
+          motivo: `No devuelto - ${tipoElemento}`,
+          fechaRegistro: new Date(),
+        });
+
+        await db.update(RegPrestamos)
+          .set({ estado: 'Incidencia' })
+          .where(eq(RegPrestamos.id, prestamoId));
+
+        const materialList = await db.select().from(Prestamos).where(eq(Prestamos.nombre, tipoElemento));
+        if (materialList.length > 0) {
+          const material = materialList[0];
+          const nuevoTotal = Math.max(0, material.total - 1);
+          const nuevosDisponibles = Math.min(material.disponibles, nuevoTotal);
+
+          await db.update(Prestamos)
+            .set({ total: nuevoTotal, disponibles: nuevosDisponibles })
+            .where(eq(Prestamos.id, material.id));
+        }
+
+        return Astro.redirect(`${url.pathname}?success=${encodeURIComponent(`Incidencia registrada y total de inventario reducido para ${tipoElemento}.`)}`);
+      } else {
+        return Astro.redirect(`${url.pathname}?error=${encodeURIComponent('Error al registrar la incidencia: faltan datos del préstamo.')}`);
+      }
+    }
+
+    // 5. ACTUALIZAR STOCK MANUAL
+    else if (action === 'actualizar_stock') {
+      const materialId = Number(formData.get('material_id'));
+      const nuevoTotal = Math.max(0, Number(formData.get('total')));
+      const nuevosDisponibles = Math.max(0, Number(formData.get('disponibles')));
+
+      if (materialId) {
+        if (nuevosDisponibles > nuevoTotal) {
+          return Astro.redirect(`${url.pathname}?error=${encodeURIComponent('Los elementos disponibles no pueden ser superiores al total.')}`);
+        }
+        await db.update(Prestamos)
+          .set({ total: nuevoTotal, disponibles: nuevosDisponibles })
+          .where(eq(Prestamos.id, materialId));
+        return Astro.redirect(`${url.pathname}?success=${encodeURIComponent('Stock e inventario actualizado correctamente.')}`);
+      }
+    }
+
+    // 6. REGISTRAR OBJETO EN CUSTODIA
+    else if (action === 'crear_objeto') {
+      const objeto = formData.get('objeto')?.toString().trim() || '';
+      const lugar = formData.get('lugar')?.toString().trim() || '';
+      const rasgos = formData.get('rasgos')?.toString().trim() || null;
+
+      if (objeto && lugar) {
+        await db.insert(ObjetosCustodiados).values({
+          objeto,
+          lugar,
+          rasgos,
+          fechaRecepcion: new Date(),
+          estado: 'En Custodia'
+        });
+        return Astro.redirect(`${url.pathname}?success=${encodeURIComponent('Objeto en custodia registrado correctamente.')}`);
+      } else {
+        return Astro.redirect(`${url.pathname}?error=${encodeURIComponent('El nombre del objeto y la ubicación son obligatorios.')}`);
+      }
+    }
+
+    // 6.B ACTUALIZAR ESTADO DE OBJETO EN CUSTODIA
+    else if (action === 'actualizar_objeto') {
+      const objetoId = Number(formData.get('objeto_id'));
+      const nuevoEstado = formData.get('estado')?.toString() || 'Devuelto';
+
+      if (objetoId) {
+        await db.update(ObjetosCustodiados)
+          .set({ estado: nuevoEstado })
+          .where(eq(ObjetosCustodiados.id, objetoId));
+        return Astro.redirect(`${url.pathname}?success=${encodeURIComponent('Estado del objeto actualizado.')}`);
+      }
+    }
+
+    // 6.C CAMBIAR ESTADO DE REPORTE DE ALUMNO (BUSCADOS)
+    else if (action === 'actualizar_estado_reporte') {
+      const reporteId = Number(formData.get('reporte_id'));
+      const nuevoEstado = formData.get('nuevo_estado')?.toString() || 'Contactado';
+
+      if (reporteId) {
+        await db.update(ReportesObjetosPerdidos)
+          .set({ estado: nuevoEstado })
+          .where(eq(ReportesObjetosPerdidos.id, reporteId));
+        return Astro.redirect(`${url.pathname}?success=${encodeURIComponent('Estado de la solicitud actualizado.')}`);
+      }
+    }
+
+    // 6.D ELIMINAR REPORTE DE Estudiante
+    else if (action === 'eliminar_reporte') {
+      const reporteId = Number(formData.get('reporte_id'));
+      if (reporteId) {
+        await db.delete(ReportesObjetosPerdidos).where(eq(ReportesObjetosPerdidos.id, reporteId));
+        return Astro.redirect(`${url.pathname}?success=${encodeURIComponent('Solicitud de objeto perdido eliminada.')}`);
+      }
+    }
+
+    // 7. REGISTRAR INCIDENCIA MANUAL
+    else if (action === 'crear_incidencia') {
+      const alumno = formData.get('alumno')?.toString().trim() || '';
+      const dni = formData.get('dni')?.toString().trim().toUpperCase() || '';
+      const tipoElemento = formData.get('tipoElemento')?.toString().trim() || 'Sanción Manual';
+      const motivo = formData.get('motivo')?.toString().trim() || '';
+
+      if (alumno && dni && motivo) {
+        await db.insert(Incidencias).values({
+          alumno,
+          dni,
+          tipoElemento,
+          motivo,
+          fechaRegistro: new Date(),
+        });
+        return Astro.redirect(`${url.pathname}?success=${encodeURIComponent('Sanción añadida a la lista negra.')}`);
+      } else {
+        return Astro.redirect(`${url.pathname}?error=${encodeURIComponent('Por favor, completa los campos requeridos.')}`);
+      }
+    }
+
+    // 8. RESOLVER INCIDENCIA
+    else if (action === 'resolver_incidencia') {
+      const incidenciaId = Number(formData.get('incidencia_id'));
+      if (incidenciaId) {
+        await db.delete(Incidencias).where(eq(Incidencias.id, incidenciaId));
+        return Astro.redirect(`${url.pathname}?success=${encodeURIComponent('Incidencia retirada.')}`);
+      }
+    }
+
+  } catch (e) {
+    console.error('Error en el Dashboard:', e);
+    return Astro.redirect(`${url.pathname}?error=${encodeURIComponent('Error al procesar la solicitud.')}`);
+  }
+}
+
+// Consultas a la base de datos
+const estadoDelegacionQuery = await db.select().from(EstadoDelegacion);
+const estaAbierto = estadoDelegacionQuery.length > 0 ? estadoDelegacionQuery[0].abierto : false;
+
+const noticias = await db.select().from(Noticias).orderBy(desc(Noticias.fechaPublicacion));
+const prestamosList = await db.select().from(Prestamos);
+const prestamosActivosList = await db.select().from(RegPrestamos).where(eq(RegPrestamos.estado, 'Activo')).orderBy(desc(RegPrestamos.fechaPrestamo));
+const objetosList = await db.select().from(ObjetosCustodiados).orderBy(desc(ObjetosCustodiados.id));
+const reportesList = await db.select().from(ReportesObjetosPerdidos).orderBy(desc(ReportesObjetosPerdidos.fechaReporte));
+const incidenciasList = await db.select().from(Incidencias).orderBy(desc(Incidencias.fechaRegistro));
+---
+
+<Layout title="Panel de Administración - DEETSIUS-Web">
+  <div class="dashboard-container">
+
+    <!-- CABECERA DEL DASHBOARD -->
+    <header class="dashboard-header-container">
+      <div>
+        <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+          <span class="badge-admin">Gestión Interna Autenticada</span>
+          <!-- BOTÓN CERRAR SESIÓN -->
+          <form method="POST" style="margin: 0;">
+            <input type="hidden" name="action" value="logout" />
+            <button type="submit" class="btn-logout-sm">🔒 Cerrar Sesión</button>
+          </form>
+        </div>
+        <h1>Panel de Administración</h1>
+        <p>Control centralizado de publicaciones, inventario, préstamos de material e incidencias.</p>
+      </div>
+
+      <!-- CONTROL DE ESTADO EN TIEMPO REAL DE LA DELEGACIÓN -->
+      <div class="estado-control-card">
+        <div class="estado-info">
+          <span class="estado-title">Estado de la Delegación</span>
+          <div class="estado-indicator">
+            <span class={`status-dot-lg ${estaAbierto ? 'dot-open' : 'dot-closed'}`}></span>
+            <strong class={estaAbierto ? 'text-open' : 'text-closed'}>
+              {estaAbierto ? 'ABIERTO' : 'CERRADO'}
+            </strong>
+          </div>
+        </div>
+
+        <form method="POST" style="margin: 0;">
+          <input type="hidden" name="action" value="toggle_estado_delegacion" />
+          <input type="hidden" name="nuevo_estado" value={(!estaAbierto).toString()} />
+          <button type="submit" class={`btn-toggle-estado ${estaAbierto ? 'btn-cerrar' : 'btn-abrir'}`}>
+            {estaAbierto ? '🔴 Marcar CERRADO' : '🟢 Marcar ABIERTO'}
+          </button>
+        </form>
+      </div>
+    </header>
+
+    {mensajeExito && <div class="alert alert-success" role="alert">✅ {mensajeExito}</div>}
+    {mensajeError && <div class="alert alert-danger" role="alert">❌ {mensajeError}</div>}
+
+    <!-- MÉTRICAS -->
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <span class="metric-icon">📰</span>
+        <div class="metric-info">
+          <h3>{noticias.length}</h3>
+          <p>Noticias / Avisos</p>
+        </div>
+      </div>
+      <div class="metric-card">
+        <span class="metric-icon">🥼</span>
+        <div class="metric-info">
+          <h3>{prestamosActivosList.length}</h3>
+          <p>Préstamos Activos</p>
+        </div>
+      </div>
+      <div class="metric-card">
+        <span class="metric-icon">🔍</span>
+        <div class="metric-info">
+          <h3>{objetosList.filter(o => o.estado === 'En Custodia').length}</h3>
+          <p>Objetos en Custodia</p>
+        </div>
+      </div>
+      <div class="metric-card danger-card">
+        <span class="metric-icon">⚠️</span>
+        <div class="metric-info">
+          <h3>{incidenciasList.length}</h3>
+          <p>Incidencias / Lista Negra</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="dashboard-grid">
+
+    <!-- SECCIÓN 1: GESTIÓN DE NOTICIAS -->
+    <section class="admin-panel">
+      <h2>📢 Crear Noticia o Aviso</h2>
+      
+      <form method="POST" class="admin-form">
+        <input type="hidden" name="action" value="crear_noticia" />
+
+        <!-- Título y Subtítulo en fila -->
+        <div class="form-row">
+          <div class="form-group flex-2">
+            <label for="titulo">Título de la noticia/aviso *</label>
+            <input type="text" id="titulo" name="titulo" required placeholder="Ej: Horario especial de exámenes" autocomplete="off" />
+          </div>
+
+          <div class="form-group flex-1">
+            <label for="categoria">Categoría</label>
+            <select id="categoria" name="categoria">
+              <option value="General" selected>Noticia General</option>
+              <option value="Becas">Becas / Ayudas</option>
+              <option value="Eventos">Evento / Actividad</option>
+              <option value="Académico">Académico</option>
+              <option value="Aviso">Aviso URGENTE</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="subtitulo">Subtítulo (Opcional)</label>
+          <input type="text" id="subtitulo" name="subtitulo" placeholder="Ej: Se amplía la apertura de la biblioteca hasta las 22:00" autocomplete="off" />
+        </div>
+
+        <!-- Resumen, URL de Imagen y Selección de Encuadre -->
+        <div class="form-row">
+          <div class="form-group flex-2">
+            <label for="resumen">Resumen corto (Opcional)</label>
+            <input type="text" id="resumen" name="resumen" placeholder="Texto breve que aparecerá en la tarjeta de la portada" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group flex-2">
+            <label for="urlImagen">URL Imagen de portada (Opcional)</label>
+            <input type="url" id="urlImagen" name="urlImagen" placeholder="https://ejemplo.com/imagen.jpg" />
+          </div>
+
+          <!-- SELECCIÓN DEL ENCUADRE DE LA FOTO -->
+          <div class="form-group flex-1">
+            <label for="posicionImagen">Encuadre de la foto</label>
+            <select id="posicionImagen" name="posicionImagen">
+              <option value="center" selected>Centrado (Por defecto)</option>
+              <option value="top">Enfocar Arriba</option>
+              <option value="bottom">Enfocar Abajo</option>
+              <option value="left">Enfocar Izquierda</option>
+              <option value="right">Enfocar Derecha</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Contenido Principal -->
+        <div class="form-group">
+          <label for="contenido">Contenido Completo *</label>
+          <textarea id="contenido" name="contenido" rows="5" required placeholder="Escribe aquí el texto completo de la noticia..."></textarea>
+        </div>
+
+        <!-- Checkbox Urgente / Destacada -->
+        <div class="form-group-checkbox">
+          <label class="checkbox-label">
+            <input type="checkbox" id="destacada" name="destacada" value="on" />
+            <span>Marcar como noticia <strong>destacada / urgente</strong></span>
+          </label>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Publicar Noticia</button>
+      </form>
+
+      <h3 class="subheading">Noticias Publicadas</h3>
+      
+      <div class="table-wrapper">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Título</th>
+              <th>Categoría</th>
+              <th>Fecha</th>
+              <th>Destacada</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody>
+            {noticias.length > 0 ? (
+              noticias.map((n) => (
+                <tr>
+                  <td data-label="Título">
+                    <strong>{n.titulo}</strong>
+                  </td>
+                  <td data-label="Categoría">
+                    <span class="tag">{n.categoria}</span>
+                  </td>
+                  <td data-label="Fecha">
+                    {new Date(n.fechaPublicacion).toLocaleDateString('es-ES', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric'
+                    })}
+                  </td>
+                  <td data-label="Destacada">
+                    {n.destacada ? (
+                      <span class="badge-urgent">SÍ</span>
+                    ) : (
+                      <span class="badge-normal">No</span>
+                    )}
+                  </td>
+                  <td data-label="Acción">
+                    <form method="POST" style="display:inline;">
+                      <input type="hidden" name="action" value="eliminar_noticia" />
+                      <input type="hidden" name="noticia_id" value={n.id} />
+                      <button type="submit" class="btn-danger-sm" onclick="return confirm('¿Seguro que deseas eliminar esta noticia?')">
+                        Eliminar
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colspan="5" class="empty-cell">No hay noticias publicadas por el momento.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+      <!-- SECCIÓN 2: PRÉSTAMOS DE MATERIAL Y STOCK -->
+      <section class="admin-panel">
+        <h2>🥼 Nuevo Préstamo de Material</h2>
+        <p class="panel-desc">Registra un nuevo préstamo comprobando incidencias previas.</p>
+
+        <form method="POST" class="admin-form grid-form" style="margin-bottom: 2rem;">
+          <input type="hidden" name="action" value="solicitar_prestamo" />
+
+          <div class="form-group">
+            <label for="alumno_prestamo">Nombre del Estudiante</label>
+            <input type="text" id="alumno_prestamo" name="alumno" placeholder="Ej: María García" required autocomplete="off" />
+          </div>
+
+          <div class="form-group">
+            <label for="dni_prestamo">DNI</label>
+            <input type="text" id="dni_prestamo" name="dni" placeholder="Ej: 12345678X" required autocomplete="off" />
+          </div>
+
+          <div class="form-group">
+            <label for="telefono_prestamo">Teléfono de Contacto</label>
+            <input type="tel" id="telefono_prestamo" name="telefono" placeholder="Ej: 612345678" required autocomplete="off" />
+          </div>
+
+          <div class="form-group">
+            <label for="curso_prestamo">Curso / Titulación</label>
+            <input type="text" id="curso_prestamo" name="curso" placeholder="Ej: 2º Grado Informática" required autocomplete="off" />
+          </div>
+
+          <div class="form-group full-width">
+            <label for="tipoElemento_prestamo">Material Solicitado</label>
+            <select id="tipoElemento_prestamo" name="tipoElemento" required>
+              <option value="" disabled selected>-- Seleccionar Material --</option>
+              {prestamosList.map((mat) => (
+                <option value={mat.nombre} disabled={mat.disponibles <= 0}>
+                  {mat.icono} {mat.nombre} ({mat.disponibles} disponibles)
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <button type="submit" class="btn btn-primary full-width">Conceder Préstamo</button>
+        </form>
+
+        <h3 class="subheading">Registro de Préstamos Activos En Curso</h3>
+        <div class="table-wrapper" style="margin-bottom: 2rem;">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Estudiante</th>
+                <th>DNI</th>
+                <th>Teléfono</th>
+                <th>Curso</th>
+                <th>Material</th>
+                <th>Fecha y Hora</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {prestamosActivosList.length > 0 ? (
+                prestamosActivosList.map((p) => (
+                  <tr>
+                    <td data-label="Alumno"><strong>{p.alumno}</strong></td>
+                    <td data-label="DNI"><code>{p.dni}</code></td>
+                    <td data-label="Teléfono">{p.telefono || 'N/A'}</td>
+                    <td data-label="Curso"><span class="tag">{p.curso || 'N/A'}</span></td>
+                    <td data-label="Material"><strong>{p.tipoElemento}</strong></td>
+                    <td data-label="Fecha/Hora">{new Date(p.fechaPrestamo).toLocaleString('es-ES')}</td>
+                    <td data-label="Acciones" class="action-buttons-cell">
+                      <form method="POST" style="display:inline;">
+                        <input type="hidden" name="action" value="devolver_prestamo" />
+                        <input type="hidden" name="prestamo_id" value={p.id} />
+                        <input type="hidden" name="tipoElemento" value={p.tipoElemento} />
+                        <button type="submit" class="btn-success-sm">Marcar Devolución</button>
+                      </form>
+
+                      <form method="POST" style="display:inline;">
+                        <input type="hidden" name="action" value="marcar_incidencia_prestamo" />
+                        <input type="hidden" name="prestamo_id" value={p.id} />
+                        <input type="hidden" name="alumno" value={p.alumno} />
+                        <input type="hidden" name="dni" value={p.dni} />
+                        <input type="hidden" name="tipoElemento" value={p.tipoElemento} />
+                        <button 
+                          type="submit" 
+                          class="btn-incidencia-sm"
+                          onclick={`return confirm('¿Registrar incidencia de NO DEVUELTO para ${p.alumno}? Esto descontará 1 unidad del TOTAL del inventario.')`}
+                        >
+                          ⚠️ Marcar Incidencia
+                        </button>
+                      </form>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colspan="7" class="empty-cell">No hay ningún préstamo activo en este momento.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="subheading">Control de Inventario</h3>
+        <div class="table-wrapper">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Material</th>
+                <th>Totales</th>
+                <th>Disponibles</th>
+                <th>Actualizar</th>
+              </tr>
+            </thead>
+            <tbody>
+              {prestamosList.map((mat) => (
+                <tr>
+                  <td data-label="Material">{mat.icono} <strong>{mat.nombre}</strong></td>
+                  <form method="POST">
+                    <input type="hidden" name="action" value="actualizar_stock" />
+                    <input type="hidden" name="material_id" value={mat.id} />
+                    <td data-label="Totales">
+                      <input type="number" name="total" value={mat.total} min="0" class="input-inline" required />
+                    </td>
+                    <td data-label="Disponibles">
+                      <input type="number" name="disponibles" value={mat.disponibles} min="0" class="input-inline" required />
+                    </td>
+                    <td data-label="Actualizar">
+                      <button type="submit" class="btn-secondary-sm">Guardar</button>
+                    </td>
+                  </form>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- SECCIÓN 3: INCIDENCIAS / LISTA NEGRA -->
+      <section class="admin-panel">
+        <h2>⚠️ Incidencias / Lista Negra</h2>
+        <p class="panel-desc">Los Estudiantes en esta lista tienen restringida la solicitud de nuevos préstamos de material.</p>
+        
+        <form method="POST" class="admin-form inline-form">
+          <input type="hidden" name="action" value="crear_incidencia" />
+          
+          <div class="form-group">
+            <input type="text" name="alumno" placeholder="Nombre alumno" required autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <input type="text" name="dni" placeholder="DNI" required autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <input type="text" name="tipoElemento" placeholder="Motivo/Material" required autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <input type="text" name="motivo" placeholder="Descripción detallada" required autocomplete="off" />
+          </div>
+          <button type="submit" class="btn btn-danger">Añadir Sanción</button>
+        </form>
+
+        <h3 class="subheading">Registro de Sanciones e Incidencias</h3>
+        <div class="table-wrapper">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Estudiante</th>
+                <th>DNI</th>
+                <th>Afecta / Motivo</th>
+                <th>Detalles</th>
+                <th>Fecha Registro</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              {incidenciasList.length > 0 ? (
+                incidenciasList.map((inc) => (
+                  <tr>
+                    <td data-label="Alumno"><strong>{inc.alumno}</strong></td>
+                    <td data-label="DNI"><code>{inc.dni}</code></td>
+                    <td data-label="Afecta"><span class="tag tag-warning">{inc.tipoElemento}</span></td>
+                    <td data-label="Detalles">{inc.motivo}</td>
+                    <td data-label="Fecha">{new Date(inc.fechaRegistro).toLocaleDateString('es-ES')}</td>
+                    <td data-label="Acción">
+                      <form method="POST" style="display:inline;">
+                        <input type="hidden" name="action" value="resolver_incidencia" />
+                        <input type="hidden" name="incidencia_id" value={inc.id} />
+                        <button type="submit" class="btn-success-sm" onclick="return confirm('¿Retirar sanción?')">Resolver / Quitar</button>
+                      </form>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colspan="6" class="empty-cell">No hay ningún Estudiante en la lista negra.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+<!-- SECCIÓN 4: OBJETOS EN CUSTODIA (INVENTARIO SEDE) -->
+      <section class="admin-panel">
+        <h2>🔍 Objetos en Custodia en Sede</h2>
+        <p class="panel-desc">Registra nuevos objetos encontrados en la facultad y gestiona su entrega.</p>
+
+        <form method="POST" class="admin-form inline-form" style="margin-bottom: 2rem;">
+          <input type="hidden" name="action" value="crear_objeto" />
+
+          <div class="form-group">
+            <input type="text" name="objeto" placeholder="Objeto (ej: Mochila, Llaves)" required autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <input type="text" name="lugar" placeholder="Lugar hallado (ej: Aula A1.12)" required autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <input type="text" name="rasgos" placeholder="Rasgos característicos (ej: Pegatina de Linux, color azul)" autocomplete="off" />
+          </div>
+          <button type="submit" class="btn btn-primary">Registrar Objeto</button>
+        </form>
+
+        <h3 class="subheading">Objetos Guardados en Oficina</h3>
+        <div class="table-wrapper">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Objeto</th>
+                <th>Lugar Encontrado</th>
+                <th>Fecha Recepción</th>
+                <th>Rasgos Característicos</th>
+                <th>Estado</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              {objetosList.length > 0 ? (
+                objetosList.map((obj) => (
+                  <tr>
+                    <td data-label="Objeto"><strong>{obj.objeto}</strong></td>
+                    <td data-label="Lugar">{obj.lugar}</td>
+                    <td data-label="Fecha">{new Date(obj.fechaRecepcion).toLocaleDateString('es-ES')}</td>
+                    <td data-label="Rasgos">{obj.rasgos || 'Sin detalles'}</td>
+                    <td data-label="Estado">
+                      <span class={`status-pill ${obj.estado === 'En Custodia' ? 'pill-warning' : 'pill-success'}`}>
+                        {obj.estado}
+                      </span>
+                    </td>
+                    <td data-label="Acción">
+                      {obj.estado === 'En Custodia' && (
+                        <form method="POST" style="display:inline;">
+                          <input type="hidden" name="action" value="actualizar_objeto" />
+                          <input type="hidden" name="objeto_id" value={obj.id} />
+                          <input type="hidden" name="estado" value="Devuelto" />
+                          <button type="submit" class="btn-success-sm">Marcar Devuelto</button>
+                        </form>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colspan="6" class="empty-cell">No se registran objetos en custodia.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- SECCIÓN 5: SOLICITUDES DE OBJETOS BUSCADOS POR Estudiantes -->
+      <section class="admin-panel" style="margin-top: 2rem;">
+        <h2>📥 Solicitudes de Objetos Perdidos por Estudiantes</h2>
+        <p class="panel-desc">Comprueba si alguna solicitud recibida desde la página de Servicios coincide con un objeto custodiado.</p>
+
+        <div class="table-wrapper">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Estudiante</th>
+                <th>Teléfono</th>
+                <th>Objeto Buscado</th>
+                <th>Lugar Pérdida</th>
+                <th>Fecha Pérdida</th>
+                <th>Rasgos</th>
+                <th>Fecha Solicitud</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {reportesList.length > 0 ? (
+                reportesList.map((rep) => (
+                  <tr>
+                    <td data-label="Alumno"><strong>{rep.nombreAlumno}</strong></td>
+                    <td data-label="Teléfono">
+                      <a href={`tel:${rep.telefono}`} style="color: #1e88e5; text-decoration: underline;">
+                        📞 {rep.telefono}
+                      </a>
+                    </td>
+                    <td data-label="Objeto Buscado">{rep.objeto}</td>
+                    <td data-label="Lugar">{rep.lugar || 'No indicado'}</td>
+                    <td data-label="Fecha Pérdida">{rep.fechaPerdida || 'No indicada'}</td>
+                    <td data-label="Rasgos">{rep.rasgos || 'Sin detalles'}</td>
+                    <td data-label="Fecha Solicitud">{new Date(rep.fechaReporte).toLocaleDateString('es-ES')}</td>
+                    <td data-label="Estado">
+                      <span class={`status-pill ${rep.estado === 'Pendiente' ? 'pill-danger' : rep.estado === 'Contactado' ? 'pill-warning' : 'pill-success'}`}>
+                        {rep.estado}
+                      </span>
+                    </td>
+                    <td data-label="Acciones">
+                      <form method="POST" style="display:inline-block; margin-right: 0.3rem;">
+                        <input type="hidden" name="action" value="actualizar_estado_reporte" />
+                        <input type="hidden" name="reporte_id" value={rep.id} />
+                        <select name="nuevo_estado" onchange="this.form.submit()" style="padding: 0.2rem 0.4rem; font-size: 0.8rem; border-radius: 4px; border: 1px solid #cbd5e1;">
+                          <option value="Pendiente" selected={rep.estado === 'Pendiente'}>Pendiente</option>
+                          <option value="Contactado" selected={rep.estado === 'Contactado'}>Contactado</option>
+                          <option value="Resuelto" selected={rep.estado === 'Resuelto'}>Resuelto</option>
+                        </select>
+                      </form>
+
+                      <form method="POST" style="display:inline-block;">
+                        <input type="hidden" name="action" value="eliminar_reporte" />
+                        <input type="hidden" name="reporte_id" value={rep.id} />
+                        <button type="submit" class="btn-danger-sm" onclick="return confirm('¿Eliminar esta solicitud?')">
+                          Eliminar
+                        </button>
+                      </form>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colspan="9" class="empty-cell">No hay solicitudes de objetos perdidos registradas.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</Layout>
+
+<style>
+  /* ==========================================================================
+     ESCALADO TIPOGRÁFICO Y ESPACIADO GLOBAL (RESPONSIVE)
+     ========================================================================== */
+  :root {
+    font-size: 16px;
+  }
+
+  @media (max-width: 1024px) {
+    :root {
+      font-size: 15px; /* Reducción suave (~6%) para portátiles pequeños / tablets */
+    }
+  }
+
+  /* ESTILOS BASE DE DASHBOARD Y ELEMENTOS PEQUEÑOS */
+  .btn-logout-sm {
+    background-color: transparent;
+    border: 1px solid #dc3545;
+    color: #dc3545;
+    margin-bottom: 0.4rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .btn-logout-sm:hover {
+    background-color: #dc3545;
+    color: #ffffff;
+  }
+
+  .dashboard-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+  }
+
+  /* CABECERA DASHBOARD CON CONTROL DE ESTADO */
+  .dashboard-header-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .badge-admin {
+    display: inline-block;
+    background: #ef4444;
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 800;
+    padding: 0.3rem 0.7rem;
+    border-radius: 20px;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+
+  .dashboard-header-container h1 {
+    color: #0f172a;
+    font-size: 2.2rem;
+    margin: 0 0 0.4rem 0;
+  }
+
+  .dashboard-header-container p {
+    color: #64748b;
+    margin: 0;
+  }
+
+  /* TARJETA E INDICADOR DE ESTADO DE LA DELEGACIÓN */
+  .estado-control-card {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  }
+
+  .estado-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .estado-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: #64748b;
+    letter-spacing: 0.5px;
+  }
+
+  .estado-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1.1rem;
+  }
+
+  .text-open { color: #16a34a; }
+  .text-closed { color: #dc2626; }
+
+  .status-dot-lg {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  .dot-open { 
+    background-color: #22c55e; 
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25); 
+  }
+
+  .dot-closed { 
+    background-color: #ef4444; 
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25); 
+  }
+
+  /* BOTÓN DE ESTADO DE LA DELEGACIÓN */
+  button.btn-toggle-estado {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    border: none !important;
+    padding: 0.65rem 1.25rem !important;
+    border-radius: 8px !important;
+    font-weight: 700 !important;
+    font-size: 0.88rem !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.4rem !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+    outline: none !important;
+  }
+
+  button.btn-toggle-estado:hover {
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
+  }
+
+  button.btn-abrir { 
+    background-color: #16a34a !important; 
+    color: #ffffff !important; 
+  }
+
+  button.btn-cerrar { 
+    background-color: #dc2626 !important; 
+    color: #ffffff !important; 
+  }
+
+  .alert {
+    padding: 1rem;
+    border-radius: 8px;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+  }
+  .alert-success { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+  .alert-danger { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+
+  /* MÉTRICAS */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.2rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .metric-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 1.2rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+  }
+
+  .danger-card {
+    border-color: #fca5a5;
+    background: #fef2f2;
+  }
+
+  .metric-icon {
+    font-size: 2rem;
+  }
+
+  .metric-info h3 {
+    margin: 0;
+    font-size: 1.8rem;
+    color: #0f172a;
+  }
+
+  .metric-info p {
+    margin: 0;
+    color: #64748b;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  /* ESTRUCTURA DEL DASHBOARD */
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+
+  .admin-panel {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 1.8rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+  }
+
+  .admin-panel h2 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.4rem;
+    color: #1e293b;
+  }
+
+  .panel-desc {
+    color: #64748b;
+    font-size: 0.9rem;
+    margin-bottom: 1.2rem;
+  }
+
+  .subheading {
+    margin-top: 1.8rem;
+    margin-bottom: 0.8rem;
+    font-size: 1.05rem;
+    color: #334155;
+  }
+
+  /* FORMULARIOS */
+  .admin-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    background: #f8fafc;
+    padding: 1.2rem;
+    border-radius: 10px;
+    border: 1px solid #f1f5f9;
+  }
+
+  .grid-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+
+  .full-width {
+    grid-column: 1 / -1;
+  }
+
+  .inline-form {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .inline-form .form-group {
+    flex: 1;
+    min-width: 180px;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .form-group label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #475569;
+  }
+
+  .form-group input, .form-group select, .form-group textarea {
+    padding: 0.6rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.9rem;
+  }
+
+  .input-inline {
+    width: 60px;
+    padding: 0.3rem 0.5rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    text-align: center;
+  }
+
+  /* TABLAS EN PANTALLAS DE ESCRITORIO */
+  .table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+  }
+
+  .admin-table th, .admin-table td {
+    padding: 0.7rem 0.8rem;
+    border-bottom: 1px solid #f1f5f9;
+    text-align: left;
+  }
+
+  .admin-table th {
+    background: #f8fafc;
+    color: #475569;
+    font-weight: 700;
+  }
+
+  .action-buttons-cell {
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .empty-cell {
+    text-align: center;
+    color: #64748b;
+    padding: 1.5rem !important;
+  }
+
+  .tag {
+    background: #e2e8f0;
+    color: #334155;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+
+  .tag-warning {
+    background: #fef3c7;
+    color: #b45309;
+  }
+
+  .status-pill {
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 0.75rem;
+  }
+  .pill-warning { background: #fef3c7; color: #d97706; }
+  .pill-success { background: #dcfce7; color: #166534; }
+
+  /* BOTONES GENERALES Y ACCIONES */
+  .btn {
+    padding: 0.6rem 1.2rem;
+    border-radius: 6px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: opacity 0.2s;
+  }
+  .btn:hover {
+    opacity: 0.9;
+  }
+  .btn-primary { background: #1e88e5; color: white; }
+  .btn-danger { background: #dc2626; color: white; }
+
+  .btn-danger-sm {
+    background: #fee2e2;
+    color: #dc2626;
+    border: none;
+    padding: 0.35rem 0.65rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .btn-secondary-sm {
+    background: #f1f5f9;
+    color: #334155;
+    border: 1px solid #cbd5e1;
+    padding: 0.35rem 0.65rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .btn-success-sm {
+    background: #16a34a;
+    color: white;
+    border: none;
+    padding: 0.35rem 0.65rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  button.btn-incidencia-sm {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    background-color: #fee2e2 !important;
+    color: #dc2626 !important;
+    border: 1px solid #fca5a5 !important;
+    padding: 0.35rem 0.65rem !important;
+    border-radius: 6px !important;
+    font-size: 0.75rem !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.3rem !important;
+    outline: none !important;
+  }
+
+  button.btn-incidencia-sm:hover {
+    background-color: #fca5a5 !important;
+    color: #7f1d1d !important;
+    border-color: #f87171 !important;
+  }
+
+  /* ==========================================================================
+     MÓVIL / TABLET (MAX-WIDTH: 768PX): ESCALADO Y TARJETAS COMPACTAS
+     ========================================================================== */
+  @media (max-width: 768px) {
+    :root {
+      font-size: 13.5px; /* Reducción global de ~15% en dispositivos móviles */
+    }
+
+    .dashboard-container {
+      padding: 0.75rem 0.4rem;
+    }
+
+    .dashboard-header-container {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.8rem;
+      margin-bottom: 1.2rem;
+    }
+
+    .dashboard-header-container h1 {
+      font-size: 1.45rem;
+    }
+
+    .dashboard-header-container p {
+      font-size: 0.85rem;
+    }
+
+    /* Métrica en grid de 2 columnas más compacto */
+    .metrics-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.6rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .metric-card {
+      padding: 0.8rem 0.9rem;
+      gap: 0.6rem;
+      border-radius: 10px;
+    }
+
+    .metric-icon {
+      font-size: 1.4rem;
+    }
+
+    .metric-info h3 {
+      font-size: 1.3rem;
+    }
+
+    .metric-info p {
+      font-size: 0.75rem;
+    }
+
+    /* Tarjeta de estado en directo */
+    .estado-control-card {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.75rem;
+      padding: 0.8rem;
+      text-align: center;
+    }
+
+    .estado-indicator {
+      justify-content: center;
+      font-size: 0.95rem;
+    }
+
+    button.btn-toggle-estado {
+      width: 100%;
+      justify-content: center;
+      padding: 0.5rem 0.8rem !important;
+      font-size: 0.8rem !important;
+    }
+
+    /* Paneles y formularios compactados */
+    .admin-panel {
+      padding: 1rem 0.75rem;
+      border-radius: 10px;
+    }
+
+    .admin-panel h2 {
+      font-size: 1.15rem;
+    }
+
+    .admin-form {
+      padding: 0.8rem;
+      gap: 0.6rem;
+    }
+
+    .form-group input, 
+    .form-group select, 
+    .form-group textarea {
+      padding: 0.45rem 0.6rem;
+      font-size: 0.85rem;
+    }
+
+    .inline-form {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .inline-form .form-group, 
+    .inline-form button {
+      width: 100%;
+    }
+
+    /* Transformación de tablas en tarjetas verticales */
+    .admin-table, 
+    .admin-table tbody, 
+    .admin-table tr, 
+    .admin-table td {
+      display: block;
+      width: 100%;
+    }
+
+    .admin-table thead {
+      display: none; /* Oculta la cabecera en móvil */
+    }
+
+    .admin-table tr {
+      margin-bottom: 0.65rem;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background-color: #ffffff;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+      padding: 0.2rem 0.4rem;
+    }
+
+    .admin-table td {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.4rem 0.3rem !important;
+      border-bottom: 1px solid #f8fafc;
+      text-align: right;
+      font-size: 0.8rem;
+    }
+
+    .admin-table td:last-child {
+      border-bottom: none;
+    }
+
+    /* Genera dinámicamente las etiquetas mediante data-label */
+    .admin-table td[data-label]::before {
+      content: attr(data-label);
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      font-size: 0.68rem;
+      letter-spacing: 0.3px;
+      margin-right: 0.5rem;
+      text-align: left;
+    }
+
+    .action-buttons-cell {
+      justify-content: flex-end;
+      gap: 0.3rem;
+      width: 100%;
+    }
+
+    .btn-success-sm, 
+    .btn-danger-sm, 
+    .btn-secondary-sm, 
+    button.btn-incidencia-sm {
+      padding: 0.25rem 0.45rem !important;
+      font-size: 0.72rem !important;
+    }
+
+    .empty-cell {
+      text-align: center !important;
+      display: block !important;
+    }
+
+    .empty-cell::before {
+      display: none !important;
+    }
+  }
+</style>

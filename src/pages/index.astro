@@ -1,0 +1,419 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { db, Noticias, desc } from 'astro:db';
+
+// Consultamos las noticias ordenadas desde la más reciente a la más antigua por ID
+const noticias = await db.select().from(Noticias).orderBy(desc(Noticias.id)).limit(6);
+---
+
+<Layout title="DEETSIUS - Delegación de Estudiantes ETSI">
+  <!-- Hero Section con la imagen de fondo integrada -->
+  <div class="hero">
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+      <span class="badge">Delegación de Estudiantes ETSI</span>
+      <h1 class="hero-title">REPRESENTANDO, AYUDANDO Y MEJORANDO TU VIDA UNIVERSITARIA.</h1>
+      <p class="hero-subtitle">
+        Tu punto de contacto para resolver dudas sobre trámites, asignaturas, representación en la Escuela y derechos estudiantiles.
+      </p>
+
+      <div class="hero-buttons">
+        <a href="/contacto" class="btn btn-primary">CONTACTO</a>
+        <a href="/faq" class="btn btn-secondary">Preguntas Frecuentes</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sección de Noticias (Conectada dinámicamente a Astro DB) -->
+  <div class="section">
+    <div class="section-header">
+      <h2>Últimas Noticias y Avisos</h2>
+      <a href="/noticias" class="link-more">Ver todas →</a>
+    </div>
+
+    {noticias.length === 0 ? (
+      <p style="color: #64748b; font-style: italic;">No hay noticias o avisos publicados por el momento.</p>
+    ) : (
+      <div class="news-grid">
+        {noticias.map((noticia) => (
+          <a href={`/noticias/${noticia.id}`} class="news-card-link">
+            <article class="news-card">
+              
+              <div class="news-card-header">
+                <span class={`tag ${noticia.destacada ? 'tag-red' : noticia.categoria?.toLowerCase().includes('beca') ? 'tag-orange' : 'tag-blue'}`}>
+                  {noticia.destacada ? 'URGENTE' : noticia.categoria}
+                </span>
+              </div>
+              
+              {/* TÍTULO */}
+              <h3>{noticia.titulo}</h3>
+
+              {/* IMAGEN CON ALTURA FORZADA Y ENCUADRE DINÁMICO */}
+              {noticia.urlImagen && (
+                <div 
+                  class="news-image-wrapper"
+                  style="width: 100%; height: 180px; overflow: hidden; border-radius: 8px; margin: 0.75rem 0;"
+                >
+                  <img 
+                    src={noticia.urlImagen} 
+                    alt={noticia.titulo} 
+                    loading="lazy" 
+                    style={`width: 100%; height: 100%; object-fit: cover; object-position: ${(noticia as any).posicionImagen || 'center'}; display: block;`}
+                  />
+                </div>
+              )}
+
+              {/* TEXTO ABAJO */}
+              <p class="news-excerpt">
+                {noticia.resumen || (noticia.urlImagen ? noticia.contenido.slice(0, 110) + '...' : noticia.contenido.slice(0, 220) + '...')}
+              </p>
+
+              <span class="date">
+                {new Date(noticia.fechaPublicacion).toLocaleDateString('es-ES', {
+                  day: '2-digit',
+                  month: 'long',
+                  year: 'numeric'
+                })}
+              </span>
+
+            </article>
+          </a>
+        ))}
+      </div>
+    )}
+  </div>
+  <!-- Sección sobre la Delegación -->
+  <section class="section presentation-section">
+    <div class="section-header">
+      <h2>Conoce la Delegación</h2>
+    </div>
+
+    <div class="faq-accordion">
+      <details class="accordion-item" open>
+        <summary class="accordion-header">
+          <h3>¿Quiénes somos?</h3>
+          <span class="icon">↓</span>
+        </summary>
+        <div class="accordion-content">
+          <p>
+            Somos el máximo órgano de representación estudiantil de la Escuela Técnica Superior de Ingeniería (ETSI). Estamos formados por estudiantes de los distintos grados y másteres de la escuela.
+          </p>
+        </div>
+      </details>
+
+      <details class="accordion-item">
+        <summary class="accordion-header">
+          <h3>¿Qué hacemos por ti?</h3>
+          <span class="icon">↓</span>
+        </summary>
+        <div class="accordion-content">
+          <p>
+            Te mediamos en conflictos con asignaturas o evaluaciones, gestionamos la cesión de espacios para estudiar o trabajar en grupo, organizamos eventos de integración, procesamos reclamaciones y te guiamos en todos los trámites burocráticos del campus.
+          </p>
+        </div>
+      </details>
+
+      <details class="accordion-item">
+        <summary class="accordion-header">
+          <h3>¿Cómo puedes unirte o colaborar?</h3>
+          <span class="icon">↓</span>
+        </summary>
+        <div class="accordion-content">
+          <p>
+            ¡La delegación está abierta a cualquier estudiante! Puedes formar parte como delegado de tu grupo-clase, presentándote a las comisiones de trabajo o simplemente pasándote por nuestra oficina para echar una mano en los eventos. No necesitas experiencia previa, solo ganas de aportar.
+          </p>
+        </div>
+      </details>
+    </div>
+  </section>
+</Layout>
+
+<style>
+  /* Hero Box con imagen de fondo */
+  .hero {
+    position: relative;
+    border-radius: 20px;
+    padding: 3.5rem 3rem;
+    margin-top: 1.5rem;
+    margin-bottom: 3rem;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    background-image: url('/foto-delega-4.jpg');
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    align-items: center;
+  }
+
+  .hero-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.85) 55%, rgba(255, 255, 255, 0.3) 100%);
+    z-index: 1;
+  }
+
+  .hero-content {
+    position: relative;
+    z-index: 2;
+    max-width: 650px;
+  }
+
+  .badge {
+    display: inline-block;
+    background-color: #e3f2fd;
+    color: #1e88e5;
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+
+  .hero-title {
+    color: #1565c0;
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1.25;
+    margin: 0 0 1rem 0;
+  }
+
+  .hero-subtitle {
+    color: #334155;
+    font-size: 1.05rem;
+    line-height: 1.6;
+    margin-bottom: 1.8rem;
+    font-weight: 500;
+  }
+
+  .hero-buttons {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    display: inline-block;
+    padding: 0.75rem 1.4rem;
+    border-radius: 8px;
+    font-weight: 700;
+    text-decoration: none;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+  }
+
+  .btn-primary {
+    background-color: #1e88e5;
+    color: white !important;
+    box-shadow: 0 2px 8px rgba(30, 136, 229, 0.3);
+  }
+
+  .btn-primary:hover {
+    background-color: #1565c0;
+    transform: translateY(-2px);
+  }
+
+  .btn-secondary {
+    background-color: rgba(255, 255, 255, 0.9);
+    color: #1e293b !important;
+    border: 1px solid #cbd5e1;
+  }
+
+  .btn-secondary:hover {
+    background-color: #ffffff;
+    transform: translateY(-2px);
+  }
+
+  /* Sección Noticias */
+  .section {
+    margin-bottom: 2rem;
+  }
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .section-header h2 {
+    color: #0f172a;
+    font-size: 1.4rem;
+    margin: 0;
+  }
+
+  .link-more {
+    color: #f58220;
+    text-decoration: none;
+    font-weight: 700;
+    transition: color 0.2s ease;
+  }
+
+  .link-more:hover {
+    color: #e06d0e;
+  }
+
+  .news-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .news-card-link {
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+  }
+
+  .news-card {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: white;
+    padding: 1.5rem;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .news-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  }
+
+  .news-image-wrapper {
+    width: 100%;
+    height: 160px;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 1rem;
+  }
+
+  .news-image-wrapper img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .tag {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    margin-bottom: 0.8rem;
+  }
+
+  .tag-blue { background: #e3f2fd; color: #1e88e5; }
+  .tag-orange { background: #fff3e0; color: #f58220; }
+  .tag-red { background: #fee2e2; color: #dc2626; }
+
+  .news-card h3 {
+    color: #1e293b;
+    font-size: 1.1rem;
+    margin: 0 0 0.5rem 0;
+    line-height: 1.4;
+  }
+
+  .news-card p {
+    color: #475569;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin-bottom: 1.2rem;
+    flex-grow: 1;
+  }
+
+  .date {
+    font-size: 0.8rem;
+    color: #64748b;
+    margin-top: auto;
+  }
+
+  /* Sección de presentación / Acordeón */
+  .presentation-section {
+    margin-top: 3.5rem;
+  }
+
+  .faq-accordion {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .accordion-item {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    overflow: hidden;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .accordion-item[open] {
+    border-color: #1e88e5;
+    box-shadow: 0 4px 12px rgba(30, 136, 229, 0.06);
+  }
+
+  .accordion-header {
+    padding: 1.2rem 1.5rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    list-style: none;
+    user-select: none;
+  }
+
+  .accordion-header::-webkit-details-marker {
+    display: none;
+  }
+
+  .accordion-header h3 {
+    margin: 0;
+    color: #1e293b;
+    font-size: 1.1rem;
+  }
+
+  .accordion-item[open] .accordion-header h3 {
+    color: #1e88e5;
+  }
+
+  .icon {
+    color: #f58220;
+    font-weight: 800;
+    font-size: 1.1rem;
+    transition: transform 0.3s ease;
+  }
+
+  .accordion-item[open] .icon {
+    transform: rotate(180deg);
+  }
+
+  .accordion-content {
+    padding: 0 1.5rem 1.2rem 1.5rem;
+    color: #475569;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    border-top: 1px solid #f1f5f9;
+    margin-top: 0.4rem;
+    padding-top: 1rem;
+  }
+
+  @media (max-width: 768px) {
+    .hero {
+      padding: 2rem 1.5rem;
+    }
+
+    .hero-overlay {
+      background: rgba(255, 255, 255, 0.92);
+    }
+
+    .hero-title {
+      font-size: 1.5rem;
+    }
+  }
+</style>

@@ -1,0 +1,362 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Contacto - DEETSIUS">
+  <div class="contacto-container">
+    
+    <!-- Encabezado de la página -->
+    <header class="contacto-header">
+      <span class="badge">Estamos para ayudarte</span>
+      <h1>Contacta con la Delegación</h1>
+      <p>¿Tienes dudas sobre tus asignaturas, normativas o necesitas apoyo presencial? Encuéntranos aquí.</p>
+    </header>
+
+    <div class="contacto-grid">
+      
+      <!-- COLUMNA IZQUIERDA: Datos de contacto directo -->
+      <div class="info-column">
+        
+        <!-- Tarjeta de Atención Presencial -->
+        <div class="contact-card highlight-card">
+          <div class="card-icon">📍</div>
+          <div class="card-text">
+            <h3>Atención Presencial</h3>
+            <p><strong>Ubicación:</strong> Escuela Técnica Superior de Ingeniería (ETSI), Planta Baja, (Junto al banco Santander).</p>
+            <p><strong>Horario:</strong> "Cuando podemos" ¡Somos estudiantes como tú!</p>
+          </div>
+        </div>
+
+        <!-- Tarjetas de Teléfono y Email -->
+        <div class="cards-row">
+          <a href="tel:+34954486126" class="contact-card interactive">
+            <div class="card-icon">📞</div>
+            <div class="card-text">
+              <h3>Teléfono</h3>
+              <p>954 48 61 26</p>
+              <span class="card-link">Llamar ahora →</span>
+            </div>
+          </a>
+
+          <a href="mailto:delegacion-etsi@us.es" class="contact-card interactive">
+            <div class="card-icon">✉️</div>
+            <div class="card-text">
+              <h3>Correo Oficial</h3>
+              <p>Delegación-etsi@us.es</p>
+              <span class="card-link">Enviar email →</span>
+            </div>
+          </a>
+        </div>
+
+        <!-- Bloque de Redes Sociales -->
+        <div class="social-block">
+          <h3>Síguenos en Redes Sociales</h3>
+          <p>Publicamos los avisos urgentes y fotos de eventos:</p>
+          <div class="social-links">
+            <a href="https://instagram.com" target="_blank" rel="noopener" class="social-btn instagram">
+              <span>Instagram</span> @delegacionETSI
+            </a>
+            <a href="https://web.whatsapp.com" target="_blank" rel="noopener" class="social-btn twitter">
+              <span>Whatsapp</span> +34 619 38 93 83
+            </a>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- COLUMNA DERECHA: Formulario directo de duda rápida -->
+      <div class="form-column">
+        <div class="form-card">
+          <h2>Déjanos tu consulta</h2>
+          <p class="form-sub">Te responderemos a tu correo corporativo de la US lo antes posible.</p>
+
+          <form class="contact-form" action="#" method="POST">
+            <div class="form-group">
+              <label for="nombre">Nombre y Apellidos</label>
+              <input type="text" id="nombre" name="nombre" placeholder="Ej. Ana García" required />
+            </div>
+
+            <div class="form-group">
+              <label for="email">Correo Universitario (@alum.us.es)</label>
+              <input type="email" id="email" name="email" placeholder="usuario@alum.us.es" required />
+            </div>
+
+            <div class="form-group">
+              <label for="asunto">Asunto / Grado</label>
+              <input type="text" id="asunto" name="asunto" placeholder="Ej. Duda sobre evaluación continua en GIE" required />
+            </div>
+
+            <div class="form-group">
+              <label for="mensaje">¿En qué podemos ayudarte?</label>
+              <textarea id="mensaje" name="mensaje" rows="4" placeholder="Escribe aquí los detalles..." required></textarea>
+            </div>
+
+            <button type="submit" class="btn-submit">Enviar Consulta</button>
+          </form>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</Layout>
+
+<style>
+  .contacto-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+  }
+
+  .contacto-header {
+    text-align: center;
+    margin-bottom: 3rem;
+  }
+
+  .badge {
+    display: inline-block;
+    background-color: #e3f2fd;
+    color: #1e88e5;
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    text-transform: uppercase;
+    margin-bottom: 0.8rem;
+  }
+
+  .contacto-header h1 {
+    color: #1e88e5;
+    font-size: 2.2rem;
+    font-weight: 800;
+    margin: 0 0 0.5rem 0;
+  }
+
+  .contacto-header p {
+    color: #475569;
+    font-size: 1.1rem;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  /* Grid Principal de 2 Columnas */
+  .contacto-grid {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 2.5rem;
+    align-items: start;
+  }
+
+  .info-column {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  /* Tarjetas Generales */
+  .contact-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 1.5rem;
+    display: flex;
+    gap: 1.2rem;
+    align-items: flex-start;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+  }
+
+  .highlight-card {
+    border-left: 5px solid #1e88e5;
+    background: #f8fafc;
+  }
+
+  .card-icon {
+    font-size: 1.8rem;
+    background: #ffffff;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  }
+
+  .card-text h3 {
+    margin: 0 0 0.4rem 0;
+    color: #1e293b;
+    font-size: 1.1rem;
+  }
+
+  .card-text p {
+    margin: 0 0 0.3rem 0;
+    color: #475569;
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+
+  /* Fila doble para Teléfono e Email */
+  .cards-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+
+  .interactive {
+    text-decoration: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+
+  .interactive:hover {
+    transform: translateY(-3px);
+    border-color: #1e88e5;
+    box-shadow: 0 8px 16px rgba(30, 136, 229, 0.08);
+  }
+
+  .card-link {
+    display: inline-block;
+    margin-top: 0.5rem;
+    color: #f58220;
+    font-weight: 700;
+    font-size: 0.85rem;
+  }
+
+  /* Bloque de Redes Sociales */
+  .social-block {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 1.5rem;
+  }
+
+  .social-block h3 {
+    margin: 0 0 0.3rem 0;
+    color: #1e293b;
+  }
+
+  .social-block p {
+    color: #64748b;
+    font-size: 0.9rem;
+    margin-bottom: 1.2rem;
+  }
+
+  .social-links {
+    display: flex;
+    gap: 1rem;
+  }
+
+  .social-btn {
+    flex: 1;
+    padding: 0.8rem;
+    border-radius: 10px;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 0.85rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    transition: transform 0.2s;
+  }
+
+  .social-btn:hover {
+    transform: translateY(-2px);
+  }
+
+  .instagram {
+    background: #fff0f5;
+    color: #d62976;
+    border: 1px solid #fcc2d7;
+  }
+
+  .twitter {
+    background: #f0fff8;
+    color: #02c764;
+    border: 1px solid #bafdd7;
+  }
+
+  /* Formulario Derecha */
+  .form-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 20px;
+    padding: 2rem;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.03);
+  }
+
+  .form-card h2 {
+    margin: 0 0 0.3rem 0;
+    color: #1e293b;
+    font-size: 1.4rem;
+  }
+
+  .form-sub {
+    color: #64748b;
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .contact-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .form-group label {
+    font-weight: 700;
+    color: #334155;
+    font-size: 0.85rem;
+  }
+
+  .form-group input, .form-group textarea {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.95rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    box-sizing: border-box;
+  }
+
+  .form-group input:focus, .form-group textarea:focus {
+    outline: none;
+    border-color: #1e88e5;
+    box-shadow: 0 0 0 3px rgba(30, 136, 229, 0.15);
+  }
+
+  .btn-submit {
+    background-color: #1e88e5;
+    color: white;
+    border: none;
+    padding: 0.9rem;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+    margin-top: 0.5rem;
+  }
+
+  .btn-submit:hover {
+    background-color: #1565c0;
+    transform: translateY(-1px);
+  }
+
+  /* Adaptación a Móviles */
+  @media (max-width: 850px) {
+    .contacto-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .cards-row {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

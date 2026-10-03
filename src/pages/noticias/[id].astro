@@ -1,0 +1,203 @@
+---
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import { db, Noticias, eq } from 'astro:db';
+
+const { id } = Astro.params;
+
+if (!id || isNaN(Number(id))) {
+  return Astro.redirect('/404');
+}
+
+const resultado = await db.select().from(Noticias).where(eq(Noticias.id, Number(id)));
+
+if (resultado.length === 0) {
+  return Astro.redirect('/404');
+}
+
+const noticia = resultado[0];
+
+const parrafos = noticia.contenido.split('\n\n').filter((p) => p.trim().length > 0);
+---
+
+<Layout title={`${noticia.titulo} - DEETSI`}>
+  <main class="main-content">
+    <article class="article-container">
+      <a href="/" class="back-link">← Volver al inicio</a>
+
+      <header class="article-header">
+        <div class="header-badges">
+          <span class={`category-badge ${noticia.destacada ? 'badge-red' : 'badge-blue'}`}>
+            {noticia.destacada ? 'URGENTE' : noticia.categoria}
+          </span>
+          <span class="author-badge">Por {noticia.autor}</span>
+        </div>
+
+        <h1>{noticia.titulo}</h1>
+        {noticia.subtitulo && <p class="article-subtitle">{noticia.subtitulo}</p>}
+        
+        <time datetime={new Date(noticia.fechaPublicacion).toISOString()}>
+          Publicado el {new Date(noticia.fechaPublicacion).toLocaleDateString('es-ES', { 
+            day: 'numeric', 
+            month: 'long', 
+            year: 'numeric' 
+          })}
+        </time>
+      </header>
+
+      {noticia.urlImagen && (
+        <div class="main-image-wrapper">
+          <img 
+            src={noticia.urlImagen} 
+            alt={noticia.titulo} 
+            class="main-image" 
+            style={`object-position: ${(noticia as any).posicionImagen || 'center'};`}
+          />
+        </div>
+      )}
+
+      <div class="article-body">
+        {parrafos.map((parrafo) => (
+          <p class="content-text">{parrafo}</p>
+        ))}
+      </div>
+    </article>
+  </main>
+</Layout>
+
+<style>
+  .main-content {
+    position: relative;
+    min-height: 100vh;
+    padding: 3rem 1rem;
+    /* Sin color de fondo propio para respetar el Layout */
+  }
+
+  /* Imagen de fondo abarcando toda la pantalla sin tapar el fondo del Layout */
+  .main-content::before {
+    content: "";
+    position: fixed; /* Ocupa la pantalla completa */
+    inset: 0;
+    background-image: url('/fondo-noticia.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    opacity: 0.12; /* Ajusta la transparencia aquí (ej: 0.08 - 0.15) */
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .article-container {
+    position: relative;
+    z-index: 1; /* Coloca la tarjeta de la noticia por encima de la imagen de fondo */
+    max-width: 760px;
+    margin: 0 auto;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 2.5rem;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+  }
+
+  .back-link {
+    display: inline-block;
+    color: #1e88e5;
+    text-decoration: none;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    transition: color 0.2s ease;
+  }
+
+  .back-link:hover {
+    color: #1565c0;
+    text-decoration: underline;
+  }
+
+  .header-badges {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    margin-bottom: 0.8rem;
+  }
+
+  .category-badge {
+    display: inline-block;
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    text-transform: uppercase;
+  }
+
+  .badge-blue { background: #e3f2fd; color: #1e88e5; }
+  .badge-red { background: #fee2e2; color: #dc2626; }
+
+  .author-badge {
+    font-size: 0.85rem;
+    color: #64748b;
+    font-weight: 500;
+  }
+
+  .article-header h1 {
+    font-size: 2.2rem;
+    color: #0f172a;
+    margin: 0 0 0.5rem 0;
+    line-height: 1.25;
+  }
+
+  .article-subtitle {
+    font-size: 1.15rem;
+    color: #475569;
+    margin-bottom: 1rem;
+    line-height: 1.4;
+    font-weight: 500;
+  }
+
+  time {
+    display: block;
+    font-size: 0.85rem;
+    color: #94a3b8;
+    font-weight: 500;
+    margin-top: 0.5rem;
+  }
+
+  .main-image-wrapper {
+    margin: 2rem 0;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #f8fafc;
+  }
+
+  .main-image {
+    width: 100%;
+    max-height: 480px;
+    object-fit: cover;
+    display: block;
+  }
+
+  .article-body {
+    font-size: 1.05rem;
+    line-height: 1.75;
+    color: #334155;
+  }
+
+  .content-text {
+    margin-bottom: 1.25rem;
+    white-space: pre-wrap;
+  }
+
+  @media (max-width: 640px) {
+    .main-content {
+      padding: 1.5rem 0.75rem;
+    }
+
+    .article-container {
+      padding: 1.5rem 1.2rem;
+    }
+    
+    .article-header h1 {
+      font-size: 1.75rem;
+    }
+  }
+</style>

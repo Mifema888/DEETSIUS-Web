@@ -1,0 +1,205 @@
+---
+export const prerender = false;
+
+import Layout from '../layouts/Layout.astro';
+import { db, Prestamos, ObjetosCustodiados, ReportesObjetosPerdidos, eq } from 'astro:db';
+
+const url = new URL(Astro.request.url);
+let mensajeExito = url.searchParams.get('success') || '';
+let mensajeError = url.searchParams.get('error') || '';
+
+if (Astro.request.method === 'POST') {
+  try {
+    const formData = await Astro.request.formData();
+    const action = formData.get('action');
+
+    if (action === 'reportar_perdida') {
+      const nombreAlumno = formData.get('nombreAlumno')?.toString().trim() || '';
+      const telefono = formData.get('telefono')?.toString().trim() || '';
+      const objeto = formData.get('objeto')?.toString().trim() || '';
+      const fechaPerdida = formData.get('fechaPerdida')?.toString().trim() || '';
+      const lugar = formData.get('lugar')?.toString().trim() || '';
+      const rasgos = formData.get('rasgos')?.toString().trim() || '';
+
+      if (nombreAlumno && telefono && objeto) {
+        await db.insert(ReportesObjetosPerdidos).values({
+          nombreAlumno,
+          telefono,
+          objeto,
+          fechaPerdida,
+          lugar,
+          rasgos,
+          fechaReporte: new Date(),
+          estado: 'Pendiente',
+        });
+        return Astro.redirect(`${url.pathname}?success=${encodeURIComponent('Aviso de pérdida registrado. Te contactaremos si lo encontramos.')}#seccion-perdidos`);
+      }
+    }
+  } catch (e) {
+    console.error(e);
+    return Astro.redirect(`${url.pathname}?error=${encodeURIComponent('Error al registrar la pérdida.')}#seccion-perdidos`);
+  }
+}
+
+const prestamosList = await db.select().from(Prestamos);
+
+// Consultamos únicamente los objetos en custodia activa
+const custodiadosList = await db
+  .select()
+  .from(ObjetosCustodiados)
+  .where(eq(ObjetosCustodiados.estado, 'En Custodia'));
+---
+
+<Layout title="Servicios - DEETSIUS">
+  <div class="servicios-container">
+    <header class="page-header">
+      <h1>Servicios de la Delegación</h1>
+      <p>Consulta material de préstamo, objetos custodiados en sede o notifica si has perdido algo.</p>
+    </header>
+
+    <!-- INVENTARIO MATERIALES -->
+    <section class="service-section">
+      <div class="section-title">
+        <h2>🥼 Préstamo de Material</h2>
+      </div>
+      <div class="inventory-grid">
+        {prestamosList.map((item) => (
+          <div class="inventory-card">
+            <div class="icon-box">{item.icono}</div>
+            <div class="info-box">
+              <h3>{item.nombre}</h3>
+              <p class={`status-text ${item.disponibles > 0 ? 'available' : 'unavailable'}`}>
+                {item.disponibles > 0 ? `${item.disponibles} disponibles` : 'Sin existencias'}
+              </p>
+              <span class="total-badge">Total en inventario: {item.total}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <!-- FORMULARIO REPORTE DE PÉRDIDA -->
+    <section id="seccion-perdidos" class="service-section">
+      <div class="section-title">
+        <h2>📢 ¿Has perdido algún objeto?</h2>
+        <p>Déjanos tus datos e información del objeto para ponernos en contacto contigo si aparece en la sede o coincide con nuestro inventario.</p>
+      </div>
+
+      {mensajeExito && <div class="alert alert-success">✅ {mensajeExito}</div>}
+      {mensajeError && <div class="alert alert-danger">❌ {mensajeError}</div>}
+
+      <form method="POST" class="report-form">
+        <input type="hidden" name="action" value="reportar_perdida" />
+        <div class="form-row">
+          <div class="form-group">
+            <label>Tu Nombre y Apellidos *</label>
+            <input type="text" name="nombreAlumno" required placeholder="Ej: María García" />
+          </div>
+          <div class="form-group">
+            <label>Número de Teléfono *</label>
+            <input type="tel" name="telefono" required placeholder="Ej: 612345678" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>¿Qué objeto has perdido? *</label>
+            <input type="text" name="objeto" required placeholder="Ej: Calculadora Casio FX-991, Chaqueta negra..." />
+          </div>
+          <div class="form-group">
+            <label>¿Cuándo lo perdiste? (Aproximadamente)</label>
+            <input type="text" name="fechaPerdida" placeholder="Ej: Ayer por la tarde, 12 de Mayo..." />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>¿Dónde crees que lo perdiste?</label>
+            <input type="text" name="lugar" placeholder="Ej: Aula A1.12, Lab. Química..." />
+          </div>
+          <div class="form-group">
+            <label>Rasgos característicos del objeto</label>
+            <input type="text" name="rasgos" placeholder="Ej: Pegatina de Batman en la tapa, funda roja rotulada..." />
+          </div>
+        </div>
+
+        <button type="submit" class="btn-submit">Registrar Objeto Perdido</button>
+      </form>
+
+      <!-- TABLA PÚBLICA DE OBJETOS CUSTODIADOS EN SEDE -->
+      <h3 class="subheading-table">📦 Objetos Encontrados Custodiados en Delegación</h3>
+      <p class="privacy-note">
+        <em>* Por seguridad y control de pertenencia, la fecha y el lugar exacto de hallazgo no se muestran públicamente. Se te preguntará por ellos para verificar la identidad al reclamar tu objeto.</em>
+      </p>
+
+      <div class="table-wrapper">
+        <table class="inventory-table">
+          <thead>
+            <tr>
+              <th>Objeto Custodiado</th>
+              <th>Rasgos Característicos</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {custodiadosList.length > 0 ? (
+              custodiadosList.map((item) => (
+                <tr>
+                  <td><strong>{item.objeto}</strong></td>
+                  <td>{item.rasgos || 'Sin detalles adicionales dados por privacidad'}</td>
+                  <td><span class="badge-custodia">{item.estado}</span></td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colspan="3" style="text-align: center; color: #64748b; padding: 1rem;">
+                  No hay objetos custodiados en este momento.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</Layout>
+
+<style>
+  .servicios-container { max-width: 1100px; margin: 0 auto; padding: 2rem 1rem; }
+  .page-header { margin-bottom: 2rem; }
+  .page-header h1 { font-size: 2rem; color: #0f172a; }
+  .page-header p { color: #64748b; }
+
+  .service-section { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.8rem; margin-bottom: 2rem; }
+  .section-title h2 { font-size: 1.4rem; color: #1e293b; margin-bottom: 0.3rem; }
+  .section-title p { color: #64748b; font-size: 0.9rem; margin-bottom: 1.2rem; }
+
+  .inventory-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+  .inventory-card { display: flex; align-items: center; gap: 1rem; background: #f8fafc; padding: 1rem; border-radius: 10px; }
+  .icon-box { font-size: 2rem; }
+  .info-box h3 { font-size: 0.95rem; margin: 0; color: #0f172a; }
+  .status-text { font-size: 0.8rem; font-weight: 700; margin: 0; }
+  .available { color: #16a34a; }
+  .unavailable { color: #dc2626; }
+  .total-badge { font-size: 0.7rem; color: #64748b; }
+
+  .report-form { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.2rem; margin-bottom: 2rem; }
+  .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+  .form-group { display: flex; flex-direction: column; gap: 0.3rem; }
+  .form-group label { font-size: 0.8rem; font-weight: 700; color: #475569; }
+  .form-group input { padding: 0.55rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; }
+
+  .btn-submit { background: #1e88e5; color: white; border: none; padding: 0.65rem 1.2rem; border-radius: 6px; font-weight: 700; cursor: pointer; }
+
+  .subheading-table { font-size: 1.1rem; color: #1e293b; margin-bottom: 0.2rem; }
+  .privacy-note { font-size: 0.8rem; color: #64748b; margin-bottom: 0.8rem; }
+  .table-wrapper { overflow-x: auto; }
+  .inventory-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .inventory-table th, .inventory-table td { padding: 0.7rem; border-bottom: 1px solid #f1f5f9; text-align: left; }
+  .inventory-table th { background: #f8fafc; color: #475569; }
+  .badge-custodia { background: #fef3c7; color: #d97706; padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: 700; font-size: 0.75rem; }
+
+  .alert { padding: 0.8rem; border-radius: 8px; font-weight: 600; margin-bottom: 1rem; }
+  .alert-success { background: #dcfce7; color: #166534; }
+  .alert-danger { background: #fee2e2; color: #991b1b; }
+</style>

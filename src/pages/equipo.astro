@@ -1,0 +1,285 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+// Array de miembros clave para iterar de forma limpia
+const equipo = [
+  {
+    nombre: "Nombre del Delegado/a",
+    cargo: "Delegado Nato",
+    grado: "4º Grado en Ing. Tecnologías Industriales",
+    foto: "/foto-delegado.jpg", // Pon la foto en public/
+    email: "delegado-etsi@us.es",
+    destacado: true
+  },
+  {
+    nombre: "Nombre Vicedelegado/a",
+    cargo: "Subdelegado / Vicedelegado Nato",
+    grado: "3º Grado en Ing. Química",
+    foto: "/foto-vicedelegado.jpg",
+    email: "vicedelegado-etsi@us.es",
+    destacado: true
+  },
+  {
+    nombre: "Mi Nombre",
+    cargo: "Responsable de Soporte Informático y Web",
+    grado: "2º Grado en Ing. de Tecnologías de Telecomunicación",
+    foto: "/foto-tuya.jpg",
+    email: "informatica-DEETSIUS@us.es",
+    destacado: true
+  },
+  {
+    nombre: "Nombre Representante",
+    cargo: "Representante CADUS / Sectorial",
+    grado: "3º Grado en Ing. Telecomunicaciones",
+    foto: "/foto-cadus.jpg",
+    email: "cadus-etsi@us.es",
+    destacado: false
+  },
+  {
+    nombre: "Nombre Tesorero/a",
+    cargo: "Tesorero / Secretaría",
+    grado: "4º Grado en Ing. Mecánica",
+    foto: "/foto-tesorero.jpg",
+    email: "tesoreria-DEETSIUS@us.es",
+    destacado: false
+  }
+];
+---
+
+<Layout title="Nuestro Equipo - DEETSIUS">
+  <div class="equipo-container">
+    
+    <!-- Header de Presentación -->
+    <header class="equipo-header">
+      <span class="badge">Representación Estudiantil</span>
+      <h1>Conoce a Nuestro Equipo</h1>
+      <p>Las personas detrás de la delegación que trabajan a diario para defender los derechos de los estudiantes de la ETSI.</p>
+    </header>
+
+    <!-- Foto de Grupo Principal -->
+    <section class="group-section">
+      <div class="group-card">
+        <div class="group-img-wrapper">
+          <img src="/foto-delega-2.jpg" alt="Foto del equipo completo de la Delegación" class="group-img" />
+        </div>
+        <div class="group-info">
+          <h2>El Equipo Completo (Curso 2025/2026)</h2>
+          <p>
+            Formado por delegados de curso, representantes de comisiones y Estudiantes voluntarios de todas las ramas de ingeniería de la escuela. ¡Pasate por la sala siempre que nos veas por aquí!
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Miembros de la Junta y Roles Clave -->
+    <section class="members-section">
+      <div class="section-title">
+        <h2>Junta Directiva y Responsables</h2>
+      </div>
+
+      <div class="members-grid">
+        {equipo.map((persona) => (
+          <article class={`member-card ${persona.destacado ? 'highlight' : ''}`}>
+            <div class="member-photo-container">
+              <img src={persona.foto} alt={`Foto de ${persona.nombre}`} class="member-photo" />
+            </div>
+            <div class="member-details">
+              <span class="role-badge">{persona.cargo}</span>
+              <h3>{persona.nombre}</h3>
+              <p class="degree">{persona.grado}</p>
+              <a href={`mailto:${persona.email}`} class="member-email">
+                ✉️ {persona.email}
+              </a>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+
+  </div>
+</Layout>
+
+<style>
+  .equipo-container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+  }
+
+  .equipo-header {
+    text-align: center;
+    margin-bottom: 3rem;
+  }
+
+  .badge {
+    display: inline-block;
+    background-color: #e3f2fd;
+    color: #1e88e5;
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    text-transform: uppercase;
+    margin-bottom: 0.8rem;
+  }
+
+  .equipo-header h1 {
+    color: #1e88e5;
+    font-size: 2.2rem;
+    font-weight: 800;
+    margin: 0 0 0.5rem 0;
+  }
+
+  .equipo-header p {
+    color: #475569;
+    font-size: 1.1rem;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  /* Sección Foto de Grupo */
+  .group-section {
+    margin-bottom: 4rem;
+  }
+
+  .group-card {
+    background: #ffffff;
+    border-radius: 20px;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+  }
+
+  .group-img-wrapper {
+    width: 100%;
+    height: 380px;
+    background-color: #f1f5f9;
+  }
+
+  .group-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .group-info {
+    padding: 1.8rem 2rem;
+  }
+
+  .group-info h2 {
+    margin: 0 0 0.5rem 0;
+    color: #1e293b;
+    font-size: 1.4rem;
+  }
+
+  .group-info p {
+    margin: 0;
+    color: #475569;
+    line-height: 1.6;
+  }
+
+  /* Sección Miembros Individuales */
+  .section-title {
+    margin-bottom: 2rem;
+  }
+
+  .section-title h2 {
+    color: #0f172a;
+    font-size: 1.5rem;
+    margin: 0 0 0.3rem 0;
+  }
+
+  .section-title p {
+    color: #64748b;
+    margin: 0;
+  }
+
+  .members-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.8rem;
+  }
+
+  .member-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .member-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.06);
+  }
+
+  /* Tarjetas destacadas (Delegado, Subdelegado, Informática) */
+  .member-card.highlight {
+    border-top: 4px solid #1e88e5;
+  }
+
+  .member-photo-container {
+    width: 100%;
+    height: 220px;
+    background-color: #f8fafc;
+  }
+
+  .member-photo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .member-details {
+    padding: 1.3rem;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+  }
+
+  .role-badge {
+    align-self: flex-start;
+    background-color: #f1f5f9;
+    color: #1e88e5;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    margin-bottom: 0.8rem;
+  }
+
+  .member-details h3 {
+    margin: 0 0 0.3rem 0;
+    color: #1e293b;
+    font-size: 1.1rem;
+  }
+
+  .degree {
+    color: #64748b;
+    font-size: 0.85rem;
+    margin: 0 0 1rem 0;
+    line-height: 1.4;
+    flex-grow: 1;
+  }
+
+  .member-email {
+    color: #f58220;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 0.85rem;
+    word-break: break-all;
+    transition: color 0.2s;
+  }
+
+  .member-email:hover {
+    color: #d96d14;
+  }
+
+  @media (max-width: 768px) {
+    .group-img-wrapper {
+      height: 240px;
+    }
+  }
+</style>

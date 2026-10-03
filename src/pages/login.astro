@@ -1,0 +1,172 @@
+---
+export const prerender = false;
+
+import Layout from '../layouts/Layout.astro';
+import crypto from 'node:crypto';
+import { db, SesionesLog, eq, and, isNull } from 'astro:db';
+
+// 1. Obtener cookie y secreto de administración
+const sessionToken = Astro.cookies.get('admin_session')?.value;
+const ADMIN_SECRET = import.meta.env.ADMIN_SECRET || process.env.ADMIN_SECRET;
+
+if (sessionToken && ADMIN_SECRET) {
+  const parts = sessionToken.split('.');
+  if (parts.length === 2) {
+    const [payload, signature] = parts;
+    const expectedSignature = crypto.createHmac('sha256', ADMIN_SECRET).update(payload).digest('hex');
+
+    // Validar firma criptográfica
+    if (
+      signature.length === expectedSignature.length &&
+      crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))
+    ) {
+      const [uvus, sessionId] = payload.split(':');
+
+      if (sessionId) {
+        // Validar en la base de datos si esta sesión específica sigue activa
+        const sesionActiva = await db
+          .select()
+          .from(SesionesLog)
+          .where(and(eq(SesionesLog.sessionId, sessionId), isNull(SesionesLog.finSesion)));
+
+        if (sesionActiva.length > 0) {
+          // Si la sesión existe y está activa, redirigir directo al dashboard
+          return Astro.redirect('/admin/dashboard');
+        }
+      }
+    }
+  }
+}
+---
+
+<Layout title="Acceso Miembros - DEETSIUS">
+  <div class="login-container">
+    <div class="login-card">
+      <div class="lock-icon">🔐</div>
+      <h2>Portal del Miembro</h2>
+      <p>Introduce tu usuario corporativo (UVUS) para acceder al panel de gestión interna.</p>
+
+      <form id="loginForm" class="login-form">
+        <div class="form-group">
+          <label for="uvus">UVUS del Solicitante</label>
+          <input type="text" id="uvus" name="uvus" required autocomplete="off" />
+        </div>
+        <div id="errorMessage" class="error-msg" style="display: none;"></div>
+        <button type="submit" id="btnSubmit" class="btn-login">Acceder al Panel</button>
+      </form>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  const form = document.getElementById('loginForm') as HTMLFormElement;
+  const inputUvus = document.getElementById('uvus') as HTMLInputElement;
+  const errorMsg = document.getElementById('errorMessage') as HTMLElement;
+  const btnSubmit = document.getElementById('btnSubmit') as HTMLButtonElement;
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    errorMsg.style.display = 'none';
+    btnSubmit.disabled = true;
+    btnSubmit.textContent = 'Verificando...';
+
+    const uvus = inputUvus.value.trim();
+
+    try {
+      const formData = new FormData();
+      formData.append('uvus', uvus);
+
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: {
+          'bypass-tunnel-reminder': 'true',
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: formData,
+      });
+
+      let data: any = {};
+      try {
+        data = await response.json();
+      } catch (jsonErr) {
+        if (response.ok) {
+          window.location.href = '/admin/dashboard';
+          return;
+        }
+      }
+
+      if (response.ok && data.success) {
+        window.location.href = '/admin/dashboard';
+      } else {
+        errorMsg.textContent = `⚠️ ${data.error || 'UVUS no autorizado.'}`;
+        errorMsg.style.display = 'block';
+      }
+    } catch (err) {
+      errorMsg.textContent = '⚠️ Error al conectar con el servidor. Inténtalo de nuevo.';
+      errorMsg.style.display = 'block';
+    } finally {
+      btnSubmit.disabled = false;
+      btnSubmit.textContent = 'Acceder al Panel';
+    }
+  });
+</script>
+
+<style>
+  .login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 70vh;
+  }
+
+  .login-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 20px;
+    padding: 2.5rem;
+    max-width: 400px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+  }
+
+  .lock-icon { font-size: 2.5rem; margin-bottom: 1rem; }
+  .login-card h2 { margin: 0 0 0.5rem 0; color: #0f172a; }
+  .login-card p { color: #64748b; font-size: 0.9rem; margin-bottom: 1.5rem; }
+
+  .login-form { display: flex; flex-direction: column; gap: 1rem; text-align: left; }
+  .form-group label { font-size: 0.85rem; font-weight: 700; color: #334155; }
+  .form-group input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 1rem;
+    box-sizing: border-box;
+    text-transform: uppercase;
+  }
+
+  .error-msg {
+    background: #fef2f2;
+    color: #dc2626;
+    padding: 0.6rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+  }
+
+  .btn-login {
+    background: #1e88e5;
+    color: white;
+    border: none;
+    padding: 0.8rem;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .btn-login:hover { background: #1565c0; }
+  .btn-login:disabled { background: #94a3b8; cursor: not-allowed; }
+</style>

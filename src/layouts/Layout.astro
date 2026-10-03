@@ -1,0 +1,126 @@
+---
+import Header from '../components/Header.astro';
+
+interface Props {
+    title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<!DOCTYPE html>
+<html lang="es">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="description" content="Página oficial de la Delegación de Estudiantes de la ETSI - Universidad de Sevilla" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <title>{title}</title>
+    </head>
+    <body>
+        <Header />
+        <main class="main-container">
+            <slot />
+        </main>
+        <footer class="footer">
+            <div class="footer-content">
+                <p>© {new Date().getFullYear()} DEETSIUS - Delegación de Estudiantes de la Escuela Técnica Superior de Ingeniería</p>
+                <p class="sub-footer">Universidad de Sevilla | Camino de los Descubrimientos s/n, Isla de la Cartuja</p>
+            </div>
+        </footer>
+    </body>
+</html>
+
+<style is:global>
+    :root {
+        --primary: #1e88e5;
+        --secondary: #f58220;
+        --bg-color: #e3f2fd;
+    }
+
+    /* Reset global con herencia de box-sizing para evitar desbordamientos */
+    *, *::before, *::after {
+        box-sizing: border-box;
+    }
+
+    html {
+        overflow-x: hidden;
+        scroll-behavior: smooth;
+        -webkit-text-size-adjust: 100%;
+    }
+
+    body {
+        margin: 0;
+        padding: 0;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        background-color: var(--bg-color);
+        color: #0f172a;
+        min-height: 100vh;
+        min-height: 100dvh; /* Utiliza el alto dinámico del navegador en móviles */
+        display: flex;
+        flex-direction: column;
+        overflow-x: hidden;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    /* Garantiza que imágenes, SVGs o vídeos nunca rompan el ancho móvil */
+    img, svg, video, canvas {
+        max-width: 100%;
+        height: auto;
+    }
+
+    /* Elimina el retraso de 300ms al pulsar botones/enlaces en pantalla táctil */
+    button, a, input, select, textarea {
+        touch-action: manipulation;
+    }
+
+    .main-container {
+        flex: 1;
+        max-width: 1300px;
+        width: 100%;
+        margin: 0 auto;
+        padding: 2rem 1.5rem;
+    }
+
+    .footer {
+        background-color: #0f172a;
+        color: #94a3b8;
+        padding: 2rem 1.5rem;
+        margin-top: 3rem;
+    }
+
+    .footer-content {
+        max-width: 1300px;
+        margin: 0 auto;
+        text-align: center;
+        font-size: 0.9rem;
+    }
+
+    .sub-footer {
+        font-size: 0.8rem;
+        color: #64748b;
+        margin-top: 0.4rem;
+    }
+
+    /* === Ajustes específicos para pantallas de móviles (< 768px) === */
+    @media (max-width: 768px) {
+        .main-container {
+            padding: 1.25rem 1rem; /* Aprovecha mejor el espacio horizontal en el teléfono */
+        }
+
+        .footer {
+            padding: 1.5rem 1rem;
+            margin-top: 2rem;
+        }
+
+        .footer-content {
+            font-size: 0.85rem;
+        }
+
+        .sub-footer {
+            font-size: 0.75rem;
+            line-height: 1.4;
+        }
+    }
+</style>
