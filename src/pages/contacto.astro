@@ -23,7 +23,7 @@ import Layout from '../layouts/Layout.astro';
           <div class="card-text">
             <h3>Atención Presencial</h3>
             <p><strong>Ubicación:</strong> Escuela Técnica Superior de Ingeniería (ETSI), Planta Baja, (Junto al banco Santander).</p>
-            <p><strong>Horario:</strong> "Cuando podemos" ¡Somos estudiantes como tú!</p>
+            <p><strong>Horario:</strong> "Cuando podemos" ¡Somos estudiantes como tú! (El icono "Abierto/Cerrado ahora" de arriba de esta página lo indica a tiempo real)</p>
           </div>
         </div>
 
@@ -63,8 +63,8 @@ import Layout from '../layouts/Layout.astro';
         </div>
 
       </div>
-
-      <!-- COLUMNA DERECHA: Formulario directo de duda rápida -->
+      <!--
+      COLUMNA DERECHA: Formulario directo de duda rápida
       <div class="form-column">
         <div class="form-card">
           <h2>Déjanos tu consulta</h2>
@@ -95,10 +95,35 @@ import Layout from '../layouts/Layout.astro';
           </form>
         </div>
       </div>
+      -->
+      <!-- COLUMNA DERECHA: Mapa de la Planta Baja -->
+      <div class="map-column">
+        <div class="map-card">
+          <h2>Dónde nos puedes encontrar:</h2>
+          
+          <div class="map-image-container">
+            <!-- 
+              NOTA PARA ASTRO: 
+              Si pones tu imagen en la carpeta 'public', la ruta será simplemente '/nombre-de-tu-imagen.jpg' 
+            -->
+            <img 
+              src="/public\planta_baja-etsi-Desaturado.png" 
+              alt="Plano de la planta baja de la ETSI con la ubicación de la delegación" 
+              class="map-image" 
+            />
+            
+            <!-- Botón opcional para que la abran en grande si no ven bien los detalles -->
+            <a href="public\planta_baja-etsi-Desaturado.png" target="_blank" class="map-enlarge">
+              🔍 Abrir mapa en pantalla completa
+            </a>
+          </div>
+        </div>
+      </div>
 
     </div>
 
   </div>
+  
 </Layout>
 
 <style>
@@ -358,5 +383,71 @@ import Layout from '../layouts/Layout.astro';
     .cards-row {
       grid-template-columns: 1fr;
     }
+  }
+
+  /* Tarjeta del Mapa (Columna Derecha) */
+  .map-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 20px;
+    padding: 2rem;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.03);
+    /* Estas dos líneas hacen que la tarjeta ocupe el 100% del alto si la columna izquierda es más larga */
+    height: 100%; 
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .map-card h2 {
+    margin: 0 0 0.3rem 0;
+    color: #1e293b;
+    font-size: 1.4rem;
+  }
+
+  .map-sub {
+    color: #64748b;
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .map-image-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    flex-grow: 1; /* Empuja el contenido para llenar el espacio */
+    justify-content: center;
+  }
+
+  .map-image {
+    width: 100%;
+    max-height: 400px; /* Evita que una imagen muy alta rompa el grid */
+    object-fit: cover; /* Mantiene la proporción sin deformarse */
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  /* Pequeño efecto al pasar el ratón por encima del mapa */
+  .map-image:hover {
+    transform: scale(1.02);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+  }
+
+  .map-enlarge {
+    font-size: 0.85rem;
+    color: #1e88e5;
+    text-decoration: none;
+    font-weight: 700;
+    background-color: #e3f2fd;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    transition: background-color 0.2s, color 0.2s;
+  }
+
+  .map-enlarge:hover {
+    background-color: #1e88e5;
+    color: #ffffff;
   }
 </style>

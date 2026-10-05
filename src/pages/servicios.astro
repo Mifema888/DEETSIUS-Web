@@ -61,6 +61,7 @@ const custodiadosList = await db
     <section class="service-section">
       <div class="section-title">
         <h2>🥼 Préstamo de Material</h2>
+        <p>De necesitar algún préstamo, pásate por la sede y te lo concederemos rápidamente tras tomarte los datos</p>
       </div>
       <div class="inventory-grid">
         {prestamosList.map((item) => (
@@ -71,7 +72,6 @@ const custodiadosList = await db
               <p class={`status-text ${item.disponibles > 0 ? 'available' : 'unavailable'}`}>
                 {item.disponibles > 0 ? `${item.disponibles} disponibles` : 'Sin existencias'}
               </p>
-              <span class="total-badge">Total en inventario: {item.total}</span>
             </div>
           </div>
         ))}
@@ -82,7 +82,6 @@ const custodiadosList = await db
     <section id="seccion-perdidos" class="service-section">
       <div class="section-title">
         <h2>📢 ¿Has perdido algún objeto?</h2>
-        <p>Déjanos tus datos e información del objeto para ponernos en contacto contigo si aparece en la sede o coincide con nuestro inventario.</p>
       </div>
 
       {mensajeExito && <div class="alert alert-success">✅ {mensajeExito}</div>}
@@ -125,41 +124,6 @@ const custodiadosList = await db
 
         <button type="submit" class="btn-submit">Registrar Objeto Perdido</button>
       </form>
-
-      <!-- TABLA PÚBLICA DE OBJETOS CUSTODIADOS EN SEDE -->
-      <h3 class="subheading-table">📦 Objetos Encontrados Custodiados en Delegación</h3>
-      <p class="privacy-note">
-        <em>* Por seguridad y control de pertenencia, la fecha y el lugar exacto de hallazgo no se muestran públicamente. Se te preguntará por ellos para verificar la identidad al reclamar tu objeto.</em>
-      </p>
-
-      <div class="table-wrapper">
-        <table class="inventory-table">
-          <thead>
-            <tr>
-              <th>Objeto Custodiado</th>
-              <th>Rasgos Característicos</th>
-              <th>Estado</th>
-            </tr>
-          </thead>
-          <tbody>
-            {custodiadosList.length > 0 ? (
-              custodiadosList.map((item) => (
-                <tr>
-                  <td><strong>{item.objeto}</strong></td>
-                  <td>{item.rasgos || 'Sin detalles adicionales dados por privacidad'}</td>
-                  <td><span class="badge-custodia">{item.estado}</span></td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colspan="3" style="text-align: center; color: #64748b; padding: 1rem;">
-                  No hay objetos custodiados en este momento.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
     </section>
   </div>
 </Layout>

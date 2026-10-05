@@ -9,7 +9,8 @@
     "dev": "astro dev",
     "build": "astro build --remote",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "db:push": "astro db push --remote"
   },
   "dependencies": {
     "@astrojs/db": "^0.21.3",
