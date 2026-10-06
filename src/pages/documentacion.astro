@@ -1,6 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import { db, Documentos, EventosAgenda, asc } from 'astro:db';
+export const prerender = false;
 
 let docs: any[] = [];
 let eventos: any[] = [];
