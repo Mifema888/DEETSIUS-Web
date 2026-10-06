@@ -237,6 +237,7 @@ const noticias = await db.select().from(Noticias).orderBy(desc(Noticias.id)).lim
     justify-content: space-between;
     align-items: center;
     margin-bottom: 1.5rem;
+    gap: 1rem;
   }
 
   .section-header h2 {
@@ -249,6 +250,7 @@ const noticias = await db.select().from(Noticias).orderBy(desc(Noticias.id)).lim
     color: #f58220;
     text-decoration: none;
     font-weight: 700;
+    white-space: nowrap;
     transition: color 0.2s ease;
   }
 
@@ -258,7 +260,7 @@ const noticias = await db.select().from(Noticias).orderBy(desc(Noticias.id)).lim
 
   .news-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 1.5rem;
   }
 
@@ -403,17 +405,62 @@ const noticias = await db.select().from(Noticias).orderBy(desc(Noticias.id)).lim
     padding-top: 1rem;
   }
 
+  /* === OPTIMIZACIONES ESPECÍFICAS PARA MÓVILES (< 768px) === */
   @media (max-width: 768px) {
     .hero {
-      padding: 2rem 1.5rem;
+      padding: 2rem 1.25rem;
+      border-radius: 16px;
+      margin-top: 0.5rem;
+      margin-bottom: 2rem;
     }
 
+    /* Tinta de fondo vertical para asegurar legibilidad en pantalla estrecha */
     .hero-overlay {
-      background: rgba(255, 255, 255, 0.92);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(255, 255, 255, 0.88) 100%);
     }
 
     .hero-title {
-      font-size: 1.5rem;
+      font-size: 1.45rem;
+    }
+
+    .hero-subtitle {
+      font-size: 0.95rem;
+      margin-bottom: 1.4rem;
+    }
+
+    /* Botones apilados al 100% de ancho en vertical para pulsar fácilmente */
+    .hero-buttons {
+      flex-direction: column;
+      width: 100%;
+      gap: 0.75rem;
+    }
+
+    .btn {
+      width: 100%;
+      text-align: center;
+      padding: 0.85rem 1rem;
+    }
+
+    /* Forzamos 1 sola columna de noticias para evitar desbordamientos en pantallas pequeñas */
+    .news-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .section-header h2 {
+      font-size: 1.2rem;
+    }
+
+    .accordion-header {
+      padding: 1rem 1.1rem;
+    }
+
+    .accordion-header h3 {
+      font-size: 1rem;
+    }
+
+    .accordion-content {
+      padding: 0 1.1rem 1rem 1.1rem;
+      font-size: 0.9rem;
     }
   }
 </style>

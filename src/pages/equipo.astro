@@ -1,48 +1,36 @@
 ---
 import Layout from '../layouts/Layout.astro';
 
-// Array de miembros clave para iterar de forma limpia
-const equipo = [
+// Array de Junta Directiva y Roles Clave (Con foto)
+const juntaDirectiva = [
   {
     nombre: "Nombre del Delegado/a",
-    cargo: "Delegado Nato",
+    cargo: "Delegado de Centro",
     grado: "4º Grado en Ing. Tecnologías Industriales",
-    foto: "/foto-delegado.jpg", // Pon la foto en public/
+    foto: "/foto-delegado.jpg",
     email: "delegado-etsi@us.es",
     destacado: true
   },
   {
     nombre: "Nombre Vicedelegado/a",
-    cargo: "Subdelegado / Vicedelegado Nato",
+    cargo: "Subdelegado de Centro",
     grado: "3º Grado en Ing. Química",
     foto: "/foto-vicedelegado.jpg",
     email: "vicedelegado-etsi@us.es",
     destacado: true
-  },
-  {
-    nombre: "Mi Nombre",
-    cargo: "Responsable de Soporte Informático y Web",
-    grado: "2º Grado en Ing. de Tecnologías de Telecomunicación",
-    foto: "/foto-tuya.jpg",
-    email: "informatica-DEETSIUS@us.es",
-    destacado: true
-  },
-  {
-    nombre: "Nombre Representante",
-    cargo: "Representante CADUS / Sectorial",
-    grado: "3º Grado en Ing. Telecomunicaciones",
-    foto: "/foto-cadus.jpg",
-    email: "cadus-etsi@us.es",
-    destacado: false
-  },
-  {
-    nombre: "Nombre Tesorero/a",
-    cargo: "Tesorero / Secretaría",
-    grado: "4º Grado en Ing. Mecánica",
-    foto: "/foto-tesorero.jpg",
-    email: "tesoreria-DEETSIUS@us.es",
-    destacado: false
   }
+];
+
+// Array de Vocales, Colaboradores y Delegados (Sin foto, lista general)
+const colaboradores = [
+  { nombre: "Ana García López", cargo: "(Ocupación)" },
+  { nombre: "Carlos Ruiz Muñoz", cargo: "(Ocupación)" },
+  { nombre: "Lucía Pérez Díaz", cargo: "(Ocupación)" },
+  { nombre: "Javier Moreno", cargo: "(Ocupación)" },
+  { nombre: "Elena Navarro", cargo: "(Ocupación)" },
+  { nombre: "Mario Castillo", cargo: "(Ocupación)" },
+  { nombre: "Sofía Romero", cargo: "(Ocupación)" },
+  { nombre: "David Blanco", cargo: "(Ocupación)" }
 ];
 ---
 
@@ -51,47 +39,76 @@ const equipo = [
     
     <!-- Header de Presentación -->
     <header class="equipo-header">
-      <span class="badge">Representación Estudiantil</span>
+      <span class="badge-blue">Representación Estudiantil</span>
       <h1>Conoce a Nuestro Equipo</h1>
-      <p>Las personas detrás de la delegación que trabajan a diario para defender los derechos de los estudiantes de la ETSI.</p>
+      <p>Las personas detrás de la delegación que trabajan a diario de forma voluntaria para defender los derechos de los estudiantes de la ETSI.</p>
     </header>
 
     <!-- Foto de Grupo Principal -->
     <section class="group-section">
-      <div class="group-card">
+      <div class="card-base group-card">
         <div class="group-img-wrapper">
+          <!-- Asegúrate de tener esta imagen en public/ -->
           <img src="/foto-delega-2.jpg" alt="Foto del equipo completo de la Delegación" class="group-img" />
         </div>
         <div class="group-info">
           <h2>El Equipo Completo (Curso 2025/2026)</h2>
           <p>
-            Formado por delegados de curso, representantes de comisiones y Estudiantes voluntarios de todas las ramas de ingeniería de la escuela. ¡Pasate por la sala siempre que nos veas por aquí!
+            Nuestra delegación está formada por delegados de curso, representantes en departamentos y estudiantes voluntarios de todas las ramas de ingeniería. Somos el nexo entre el alumnado y la dirección de la escuela. ¡Pásate por la sala siempre que nos veas por aquí!
           </p>
         </div>
       </div>
     </section>
 
-    <!-- Miembros de la Junta y Roles Clave -->
+    <!-- Miembros de la Junta Directiva (Con Fotos) -->
     <section class="members-section">
       <div class="section-title">
-        <h2>Junta Directiva y Responsables</h2>
+        <h2>Junta Directiva y Coordinación</h2>
+        <p>Los responsables de las distintas áreas de trabajo y representación institucional de la escuela.</p>
       </div>
 
       <div class="members-grid">
-        {equipo.map((persona) => (
-          <article class={`member-card ${persona.destacado ? 'highlight' : ''}`}>
+        {juntaDirectiva.map((persona) => (
+          <article class={`card-base member-card ${persona.destacado ? 'highlight' : ''}`}>
             <div class="member-photo-container">
-              <img src={persona.foto} alt={`Foto de ${persona.nombre}`} class="member-photo" />
+              <img src={persona.foto} alt={`Foto de ${persona.nombre}`} class="member-photo" onerror="this.src='https://ui-avatars.com/api/?name='+encodeURIComponent('${persona.nombre}')+'&background=f1f5f9&color=64748b&size=250'"/>
             </div>
             <div class="member-details">
-              <span class="role-badge">{persona.cargo}</span>
+              <span class={persona.destacado ? 'badge-orange role-badge' : 'badge-blue role-badge'}>
+                {persona.cargo}
+              </span>
               <h3>{persona.nombre}</h3>
               <p class="degree">{persona.grado}</p>
-              <a href={`mailto:${persona.email}`} class="member-email">
-                ✉️ {persona.email}
-              </a>
+              <div class="member-footer">
+                <a href={`mailto:${persona.email}`} class="member-email">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                  {persona.email}
+                </a>
+              </div>
             </div>
           </article>
+        ))}
+      </div>
+    </section>
+
+    <!-- Lista General de Colaboradores y Vocales (Sin fotos) -->
+    <section class="general-list-section">
+      <div class="section-title">
+        <h2>Vocales y Representantes</h2>
+        <p>Compañeros que coordinan cursos específicos, comisiones académicas y apoyan en el día a día de la representación.</p>
+      </div>
+
+      <div class="colaboradores-grid">
+        {colaboradores.map((colab) => (
+          <div class="colaborador-item">
+            <div class="colab-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1e88e5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            </div>
+            <div class="colab-info">
+              <h4>{colab.nombre}</h4>
+              <span>{colab.cargo}</span>
+            </div>
+          </div>
         ))}
       </div>
     </section>
@@ -100,59 +117,49 @@ const equipo = [
 </Layout>
 
 <style>
+  /* --- ESTILOS ESPECÍFICOS DE LA PÁGINA --- */
+  
   .equipo-container {
     max-width: 1100px;
     margin: 0 auto;
-    padding: 2rem 1rem;
+    padding: 1.5rem 1rem; /* Reducido espaciado general */
   }
 
   .equipo-header {
     text-align: center;
-    margin-bottom: 3rem;
-  }
-
-  .badge {
-    display: inline-block;
-    background-color: #e3f2fd;
-    color: #1e88e5;
-    font-size: 0.8rem;
-    font-weight: 700;
-    padding: 0.4rem 0.8rem;
-    border-radius: 20px;
-    text-transform: uppercase;
-    margin-bottom: 0.8rem;
+    margin-bottom: 2rem; /* Reducido de 4rem a 2rem */
   }
 
   .equipo-header h1 {
-    color: #1e88e5;
-    font-size: 2.2rem;
+    color: #0f172a; /* Título en negro / Slate oscuro */
+    font-size: 1.8rem; /* Reducido de 2.5rem a 1.8rem */
     font-weight: 800;
-    margin: 0 0 0.5rem 0;
+    margin: 0.6rem 0;
+    letter-spacing: -0.5px;
   }
 
   .equipo-header p {
     color: #475569;
-    font-size: 1.1rem;
-    max-width: 600px;
+    font-size: 1rem;
+    max-width: 650px;
     margin: 0 auto;
+    line-height: 1.5;
   }
 
   /* Sección Foto de Grupo */
   .group-section {
-    margin-bottom: 4rem;
+    margin-bottom: 2.5rem; /* Reducido de 5rem a 2.5rem */
   }
 
   .group-card {
-    background: #ffffff;
-    border-radius: 20px;
     overflow: hidden;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+    display: flex;
+    flex-direction: column;
   }
 
   .group-img-wrapper {
     width: 100%;
-    height: 380px;
+    height: 320px; /* Ligera reducción de altura para compactar */
     background-color: #f1f5f9;
   }
 
@@ -163,77 +170,83 @@ const equipo = [
   }
 
   .group-info {
-    padding: 1.8rem 2rem;
+    padding: 1.25rem 1.75rem; /* Reducido relleno */
+    background: linear-gradient(to right, #ffffff, #f8fafc);
   }
 
   .group-info h2 {
-    margin: 0 0 0.5rem 0;
-    color: #1e293b;
-    font-size: 1.4rem;
+    margin: 0 0 0.4rem 0;
+    color: #0f172a;
+    font-size: 1.35rem;
   }
 
   .group-info p {
     margin: 0;
     color: #475569;
-    line-height: 1.6;
+    line-height: 1.5;
+    font-size: 0.95rem;
   }
 
-  /* Sección Miembros Individuales */
+  /* Sección Junta Directiva (Grid de Tarjetas) */
+  .members-section {
+    margin-bottom: 2.5rem; /* Reducido de 5rem a 2.5rem */
+  }
+
   .section-title {
-    margin-bottom: 2rem;
+    margin-bottom: 1.5rem; /* Reducido de 2.5rem a 1.5rem */
+    text-align: center;
   }
 
   .section-title h2 {
     color: #0f172a;
     font-size: 1.5rem;
+    font-weight: 800;
     margin: 0 0 0.3rem 0;
   }
 
   .section-title p {
     color: #64748b;
-    margin: 0;
+    margin: 0 auto;
+    font-size: 0.95rem;
   }
 
   .members-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 1.8rem;
+    gap: 1.25rem; /* Hueco entre tarjetas más ajustado */
   }
 
   .member-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 16px;
-    overflow: hidden;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
   }
 
-  .member-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.06);
-  }
-
-  /* Tarjetas destacadas (Delegado, Subdelegado, Informática) */
   .member-card.highlight {
-    border-top: 4px solid #1e88e5;
+    border-top: 4px solid #f58220;
+  }
+
+  .member-card:hover .member-photo {
+    transform: scale(1.04);
   }
 
   .member-photo-container {
     width: 100%;
-    height: 220px;
+    height: 240px; /* Reducida la altura de las fotos */
     background-color: #f8fafc;
+    overflow: hidden;
   }
 
   .member-photo {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: center top;
+    transition: transform 0.4s ease;
   }
 
   .member-details {
-    padding: 1.3rem;
+    padding: 1.2rem;
     display: flex;
     flex-direction: column;
     flex-grow: 1;
@@ -241,19 +254,16 @@ const equipo = [
 
   .role-badge {
     align-self: flex-start;
-    background-color: #f1f5f9;
-    color: #1e88e5;
-    font-size: 0.75rem;
-    font-weight: 700;
-    padding: 0.3rem 0.6rem;
-    border-radius: 6px;
-    margin-bottom: 0.8rem;
+    margin-bottom: 0.6rem;
+    font-size: 0.7rem;
+    letter-spacing: 0.5px;
   }
 
   .member-details h3 {
     margin: 0 0 0.3rem 0;
     color: #1e293b;
-    font-size: 1.1rem;
+    font-size: 1.15rem;
+    font-weight: 700;
   }
 
   .degree {
@@ -264,22 +274,99 @@ const equipo = [
     flex-grow: 1;
   }
 
+  .member-footer {
+    border-top: 1px solid #f1f5f9;
+    padding-top: 0.8rem;
+    margin-top: auto;
+  }
+
   .member-email {
-    color: #f58220;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #1e88e5;
     text-decoration: none;
-    font-weight: 700;
+    font-weight: 600;
     font-size: 0.85rem;
-    word-break: break-all;
     transition: color 0.2s;
   }
 
   .member-email:hover {
-    color: #d96d14;
+    color: #1565c0;
   }
 
+  /* Sección Lista General de Colaboradores */
+  .general-list-section {
+    background-color: #f8fafc;
+    padding: 2rem 1.5rem; /* Reducido relleno */
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+  }
+
+  .colaboradores-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 0.8rem; /* Separación más compacta entre nombres */
+    margin-top: 1.2rem;
+  }
+
+  .colaborador-item {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: border-color 0.2s;
+  }
+
+  .colaborador-item:hover {
+    border-color: #1e88e5;
+  }
+
+  .colab-icon {
+    background-color: #e3f2fd;
+    padding: 6px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .colab-info h4 {
+    margin: 0;
+    color: #0f172a;
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+
+  .colab-info span {
+    color: #64748b;
+    font-size: 0.78rem;
+  }
+
+  /* Responsive Design */
   @media (max-width: 768px) {
+    .equipo-header h1 {
+      font-size: 1.6rem;
+    }
+    
     .group-img-wrapper {
-      height: 240px;
+      height: 200px;
+    }
+
+    .group-info {
+      padding: 1.2rem;
+    }
+
+    .members-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .general-list-section {
+      padding: 1.5rem 1rem;
     }
   }
 </style>

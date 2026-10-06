@@ -101,6 +101,29 @@ export const SesionesLog = defineTable({
   },
 });
 
+export const Documentos = defineTable({
+  columns: {
+    id: column.number({ primaryKey: true }),
+    titulo: column.text(),
+    categoria: column.text(), // 'Estudiantes', 'Profesorado', 'Normativa'
+    descripcion: column.text(),
+    urlDescarga: column.text(),
+    tamano: column.text({ optional: true }), // Ej: 'PDF (450 KB)'
+  }
+});
+
+export const EventosAgenda = defineTable({
+  columns: {
+    id: column.number({ primaryKey: true }),
+    titulo: column.text(),
+    tipo: column.text(), // 'CADUS', 'Junta de Escuela', 'Sectorial', 'Consejo Dpto', 'Otro'
+    fecha: column.date(),
+    horaInicio: column.text({ optional: true }), // Ej: '10:00'
+    lugar: column.text({ optional: true }), // Ej: 'Salón de Actos'
+    descripcion: column.text({ optional: true }),
+  }
+});
+
 export default defineDb({
   tables: {
     Noticias,
@@ -111,5 +134,9 @@ export default defineDb({
     Incidencias,
     EstadoDelegacion,
     SesionesLog,
+    Documentos,
+    EventosAgenda
   },
+
+  
 });

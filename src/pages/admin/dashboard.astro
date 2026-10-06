@@ -1,6 +1,5 @@
 ---
 // Petición al servidor en tiempo real
-// Petición al servidor en tiempo real
 export const prerender = false;
 
 import Layout from '../../layouts/Layout.astro';
@@ -15,6 +14,8 @@ import {
   Incidencias, 
   EstadoDelegacion,
   SesionesLog,
+  Documentos,
+  EventosAgenda,
   eq, 
   desc,
   gte
@@ -94,7 +95,7 @@ if (Astro.request.method === 'POST') {
       const estadoTexto = estadoActual ? 'ABIERTA' : 'CERRADA';
       return Astro.redirect(`${url.pathname}?success=${encodeURIComponent(`Estado de la delegación actualizado a: ${estadoTexto}`)}`);
     }
-
+    
     // 1. PUBLICAR NOTICIA / AVISO
     else if (action === 'crear_noticia') {
       const titulo = formData.get('titulo')?.toString().trim() || '';
@@ -173,6 +174,71 @@ if (Astro.request.method === 'POST') {
         }
       } else {
         return Astro.redirect(`${url.pathname}?error=${encodeURIComponent('Por favor, rellena todos los campos del formulario.')}`);
+      }
+    }
+
+    // 4. AÑADIR DOCUMENTO DE NORMATIVA
+    else if (action === 'crear_documento') {
+      const titulo = formData.get('titulo')?.toString().trim() || '';
+      const categoria = formData.get('categoria')?.toString().trim() || 'General';
+      const descripcion = formData.get('descripcion')?.toString().trim() || '';
+      const urlDescarga = formData.get('urlDescarga')?.toString().trim() || '';
+      const tamano = formData.get('tamano')?.toString().trim() || 'Enlace externo';
+
+      if (titulo && urlDescarga) {
+        await db.insert(Documentos).values({
+          titulo,
+          categoria,
+          descripcion,
+          urlDescarga,
+          tamano
+        });
+        return Astro.redirect(`${url.pathname}?success=${encodeURIComponent('Documento añadido correctamente a la normativa.')}`);
+      } else {
+        return Astro.redirect(`${url.pathname}?error=${encodeURIComponent('El título y el enlace son obligatorios para añadir un documento.')}`);
+      }
+    }
+
+    // 5. ELIMINAR DOCUMENTO
+    else if (action === 'eliminar_documento') {
+      const docId = Number(formData.get('documento_id'));
+      if (docId) {
+        await db.delete(Documentos).where(eq(Documentos.id, docId));
+        return Astro.redirect(`${url.pathname}?success=${encodeURIComponent('Documento retirado del portal público.')}`);
+      }
+    }
+
+    // 6. AÑADIR EVENTO A LA AGENDA PÚBLICA
+    else if (action === 'crear_evento') {
+      const titulo = formData.get('titulo')?.toString().trim() || '';
+      const tipo = formData.get('tipo')?.toString().trim() || 'General';
+      const fechaStr = formData.get('fecha')?.toString().trim() || ''; // Viene del input type="date"
+      const horaInicio = formData.get('horaInicio')?.toString().trim() || '';
+      const lugar = formData.get('lugar')?.toString().trim() || '';
+      const descripcion = formData.get('descripcion')?.toString().trim() || '';
+
+      if (titulo && fechaStr) {
+        await db.insert(EventosAgenda).values({
+          titulo,
+          tipo,
+          // Convertimos el string 'YYYY-MM-DD' del formulario a un objeto Date de JS
+          fecha: new Date(fechaStr), 
+          horaInicio,
+          lugar,
+          descripcion
+        });
+        return Astro.redirect(`${url.pathname}?success=${encodeURIComponent('Evento publicado en la agenda correctamente.')}`);
+      } else {
+        return Astro.redirect(`${url.pathname}?error=${encodeURIComponent('El título y la fecha son obligatorios para crear un evento.')}`);
+      }
+    }
+
+    // 7. ELIMINAR EVENTO
+    else if (action === 'eliminar_evento') {
+      const eventoId = Number(formData.get('evento_id'));
+      if (eventoId) {
+        await db.delete(EventosAgenda).where(eq(EventosAgenda.id, eventoId));
+        return Astro.redirect(`${url.pathname}?success=${encodeURIComponent('Evento cancelado/eliminado de la agenda.')}`);
       }
     }
 
@@ -348,6 +414,8 @@ if (Astro.request.method === 'POST') {
 const estadoDelegacionQuery = await db.select().from(EstadoDelegacion);
 const estaAbierto = estadoDelegacionQuery.length > 0 ? estadoDelegacionQuery[0].abierto : false;
 
+const listaDocumentos = await db.select().from(Documentos);
+const listaEventos = await db.select().from(EventosAgenda).orderBy(desc(EventosAgenda.fecha));
 const noticias = await db.select().from(Noticias).orderBy(desc(Noticias.fechaPublicacion));
 const prestamosList = await db.select().from(Prestamos);
 const prestamosActivosList = await db.select().from(RegPrestamos).where(eq(RegPrestamos.estado, 'Activo')).orderBy(desc(RegPrestamos.fechaPrestamo));
@@ -903,7 +971,179 @@ const incidenciasList = await db.select().from(Incidencias).orderBy(desc(Inciden
           </table>
         </div>
       </section>
+      <!-- ==========================================
+     MÓDULO: GESTIÓN DE AGENDA
+     ========================================== -->
+      <div class="admin-panel">
+        <h2>📅 Gestión de Agenda Pública</h2>
+        <p class="panel-desc">Añade o elimina eventos visibles en la agenda pública de la web.</p>
+        
+        <h3 class="subheading">Añadir Nuevo Evento</h3>
+        <form method="POST" class="admin-form grid-form">
+          <input type="hidden" name="action" value="crear_evento" />
+          
+          <div class="form-group full-width">
+            <label>Título del Evento</label>
+            <input type="text" name="titulo" required placeholder="Ej: Pleno Extraordinario CADUS" />
+          </div>
+          
+          <div class="form-group">
+            <label>Tipo de Evento</label>
+            <select name="tipo">
+              <option value="Junta de Escuela">Junta de Escuela</option>
+              <option value="CADUS">CADUS</option>
+              <option value="Sectorial">Sectoriales</option>
+              <option value="Trabajo Interno">Trabajo Interno</option>
+            </select>
+          </div>
 
+          <div class="form-group">
+            <label>Fecha</label>
+            <input type="date" name="fecha" required />
+          </div>
+
+          <div class="form-group">
+            <label>Hora (Opcional)</label>
+            <input type="text" name="horaInicio" placeholder="Ej: 16:30 - 18:00" />
+          </div>
+
+          <div class="form-group">
+            <label>Lugar</label>
+            <input type="text" name="lugar" placeholder="Ej: Salón de Grados" />
+          </div>
+
+          <div class="form-group full-width">
+            <label>Breve Descripción</label>
+            <textarea name="descripcion" rows="2"></textarea>
+          </div>
+
+          <div class="full-width">
+            <button type="submit" class="btn btn-primary">Publicar Evento</button>
+          </div>
+        </form>
+
+        <h3 class="subheading">Eventos Programados</h3>
+        <div class="table-wrapper">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Título del Evento</th>
+                <th>Tipo</th>
+                <th>Fecha</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {listaEventos.length === 0 ? (
+                <tr>
+                  <td colspan="4" class="empty-cell">No hay eventos en la agenda.</td>
+                </tr>
+              ) : null}
+              
+              {listaEventos.map((ev) => (
+                <tr>
+                  <td data-label="Título">{ev.titulo}</td>
+                  <td data-label="Tipo"><span class="tag">{ev.tipo}</span></td>
+                  <td data-label="Fecha">{new Date(ev.fecha).toLocaleDateString('es-ES')}</td>
+                  <td data-label="Acciones">
+                    <div class="action-buttons-cell">
+                      <form method="POST" onsubmit="return confirm('¿Seguro que quieres eliminar este evento?');" style="margin: 0;">
+                        <input type="hidden" name="action" value="eliminar_evento" />
+                        <input type="hidden" name="evento_id" value={ev.id} />
+                        <button type="submit" class="btn-danger-sm" title="Eliminar evento">Borrar</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ==========================================
+          MÓDULO: GESTIÓN DE NORMATIVA Y DOCUMENTOS
+          ========================================== -->
+      <div class="admin-panel">
+        <h2>📚 Gestión de Normativa y Guías</h2>
+        <p class="panel-desc">Administra los documentos y enlaces públicos en el portal de normativa.</p>
+        
+        <h3 class="subheading">Añadir Nuevo Documento</h3>
+        <form method="POST" class="admin-form grid-form">
+          <input type="hidden" name="action" value="crear_documento" />
+          
+          <div class="form-group full-width">
+            <label>Título del Documento</label>
+            <input type="text" name="titulo" required placeholder="Ej: Normativa de Evaluación..." />
+          </div>
+          
+          <div class="form-group">
+            <label>Categoría</label>
+            <select name="categoria">
+              <option value="Estudiantes">Estudiantes</option>
+              <option value="Normativa General">Normativa General</option>
+              <option value="Guías y Ayudas">Guías y Ayudas</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Formato / Tamaño</label>
+            <input type="text" name="tamano" placeholder="Ej: PDF (2.4 MB) o Enlace Externo" />
+          </div>
+
+          <div class="form-group full-width">
+            <label>URL / Enlace de Descarga</label>
+            <input type="url" name="urlDescarga" required placeholder="https://..." />
+          </div>
+
+          <div class="form-group full-width">
+            <label>Descripción corta</label>
+            <textarea name="descripcion" rows="2"></textarea>
+          </div>
+
+          <div class="full-width">
+            <button type="submit" class="btn btn-primary">Añadir Documento</button>
+          </div>
+        </form>
+
+        <h3 class="subheading">Documentos Públicos</h3>
+        <div class="table-wrapper">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Documento</th>
+                <th>Categoría</th>
+                <th>Formato</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {listaDocumentos.length === 0 ? (
+                <tr>
+                  <td colspan="4" class="empty-cell">No hay documentos subidos.</td>
+                </tr>
+              ) : null}
+              
+              {listaDocumentos.map((doc) => (
+                <tr>
+                  <td data-label="Documento"><strong>{doc.titulo}</strong></td>
+                  <td data-label="Categoría"><span class="tag">{doc.categoria}</span></td>
+                  <td data-label="Formato">{doc.tamano || 'Externo'}</td>
+                  <td data-label="Acciones">
+                    <div class="action-buttons-cell">
+                      <form method="POST" onsubmit="return confirm('¿Seguro que quieres borrar este documento?');" style="margin: 0;">
+                        <input type="hidden" name="action" value="eliminar_documento" />
+                        <input type="hidden" name="documento_id" value={doc.id} />
+                        <button type="submit" class="btn-danger-sm" title="Eliminar documento">Borrar</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
 </Layout>

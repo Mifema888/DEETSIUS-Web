@@ -1,0 +1,437 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { db, Documentos, EventosAgenda, asc } from 'astro:db';
+
+let docs: any[] = [];
+let eventos: any[] = [];
+
+try {
+  docs = await db.select().from(Documentos);
+  eventos = await db.select().from(EventosAgenda).orderBy(asc(EventosAgenda.fecha));
+} catch (e) {
+  // Manejo de consulta en caso de que aún no existan datos
+}
+
+const listaDocumentos = docs.length > 0 ? docs : [
+  {
+    id: 1,
+    titulo: "Reglamento de Evaluación y Calificación (REVA)",
+    categoria: "Estudiantes",
+    descripcion: "Normativa oficial sobre convocatorias, tipos de evaluación continua, revisiones de exámenes y conservación de pruebas.",
+    urlDescarga: "https://www.us.es/estudiar/que-estudiar/normativa-y-calendario",
+    tamano: "PDF Oficial US"
+  },
+  {
+    id: 2,
+    titulo: "Estatuto del Estudiante de la Universidad de Sevilla",
+    categoria: "Estudiantes",
+    descripcion: "Marco regulador principal de los derechos, deberes y órganos de representación estudiantil en la US.",
+    urlDescarga: "https://www.us.es/conoce-la-us/normativa/normativa-general",
+    tamano: "PDF Oficial US"
+  },
+  {
+    id: 3,
+    titulo: "Normativa de Permanencia en Grado y Máster",
+    categoria: "Normativa General",
+    descripcion: "Requisitos de rendimiento académico mínimo, número máximo de convocatorias y reglas relativas a la matriculación.",
+    urlDescarga: "https://www.us.es/estudiar/que-estudiar/normativa-y-calendario",
+    tamano: "PDF Oficial US"
+  }
+];
+
+const listaEventos = eventos.length > 0 ? eventos : [
+  {
+    id: 1,
+    titulo: "Reunión interna de la Delegación",
+    tipo: "Trabajo Interno",
+    fecha: "2026-10-05",
+    horaInicio: "18:30 - 19:30",
+    lugar: "Sede Delegación",
+    descripcion: "Coordinación de nuevas herramientas para el portal del estudiante."
+  },
+  {
+    id: 2,
+    titulo: "Sesión abierta: Reforma Normativa Académica",
+    tipo: "Junta de Escuela",
+    fecha: "2026-10-06",
+    horaInicio: "18:30 - 19:30",
+    lugar: "Salón de Grados ETSI",
+    descripcion: "Debate abierto con alumnos para recoger propuestas de cambios en reglamentos."
+  },
+  {
+    id: 3,
+    titulo: "Pleno Ordinario del CADUS",
+    tipo: "CADUS",
+    fecha: "2026-10-15",
+    horaInicio: "16:30 - 19:30",
+    lugar: "Rectorado / Teams",
+    descripcion: "Debate sobre presupuestos de representación y propuestas de mejora."
+  },
+  {
+    id: 4,
+    titulo: "Congreso del CEET",
+    tipo: "Sectorial",
+    fecha: "2026-10-22",
+    horaInicio: "10:00 - 14:00",
+    lugar: "Salón de Actos",
+    descripcion: "Encuentro interuniversitario para coordinar posturas en titulaciones de ingeniería."
+  }
+];
+---
+
+<Layout title="Documentación y Agenda - DEETSIUS">
+  <div class="page-wrapper">
+    
+    <!-- CABECERA PRINCIPAL E INTRODUCCIÓN UTILITARIA -->
+    <header class="page-header">
+      <div class="badge-pill">
+        <span class="pulse-dot"></span>
+        Transparencia y Herramientas Académicas
+      </div>
+      <h1>Documentación Oficial y Agenda Pública</h1>
+      
+      <div class="guide-card">
+        <p class="guide-intro">
+          Esta plataforma unifica el <strong>marco regulador de la Escuela</strong> y el <strong>calendario de trabajo en tiempo real</strong> de la Delegación.
+        </p>
+
+        <div class="features-grid">
+          <div class="feature-item">
+            <div class="icon-bubble blue">📄</div>
+            <div>
+              <h4>¿Qué encontrarás aquí?</h4>
+              <p>Enlaces directos a reglamentos oficiales (REVA, Permanencia, Estatuto) y las fechas exactas de nuestras reuniones institucionales.</p>
+            </div>
+          </div>
+
+          <div class="feature-item">
+            <div class="icon-bubble orange">🛠️</div>
+            <div>
+              <h4>¿Qué puedes hacer?</h4>
+              <p>Revisar tus derechos antes de reclamar una nota, comprobar solapamientos de exámenes y solicitar asistir a sesiones abiertas.</p>
+            </div>
+          </div>
+
+          <div class="feature-item">
+            <div class="icon-bubble green">💡</div>
+            <div>
+              <h4>¿Por qué te beneficia?</h4>
+              <p>Estar informado es la forma más rápida de evitar abusos en las aulas y de fiscalizar que la Delegación cumple con su labor cotidiana.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- SECCIÓN 1: REGLAMENTOS Y DOCUMENTACIÓN COMPARTIMENTADA -->
+    <section class="section-container">
+      <details class="docs-accordion" open>
+        <summary class="accordion-header">
+          <div class="accordion-title-group">
+            <span class="folder-badge">📚</span>
+            <div>
+              <h2>Reglamentos y Normativas del Estudiante</h2>
+              <p class="accordion-subtext">Haz clic para desplegar o recoger los accesos a documentos oficiales ({listaDocumentos.length})</p>
+            </div>
+          </div>
+          <span class="accordion-arrow">▼</span>
+        </summary>
+
+        <div class="accordion-body">
+          <div class="search-filter-box">
+            <input type="text" id="doc-search-input" placeholder="🔍 Buscar reglamento (ej: REVA, evaluación, permanencia...)" />
+          </div>
+
+          <div class="docs-grid" id="docs-grid-container">
+            {listaDocumentos.map((doc) => (
+              <article class="doc-card" data-title={doc.titulo.toLowerCase()} data-desc={doc.descripcion.toLowerCase()}>
+                <div class="doc-header-meta">
+                  <span class="category-tag">{doc.categoria}</span>
+                  {doc.tamano && <span class="doc-type-info">{doc.tamano}</span>}
+                </div>
+                
+                <h3>{doc.titulo}</h3>
+                <p>{doc.descripcion}</p>
+
+                <a href={doc.urlDescarga} target="_blank" rel="noopener noreferrer" class="btn-doc-link">
+                  <span>Acceder al Documento</span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                    <polyline points="15 3 21 3 21 9"></polyline>
+                    <line x1="10" y1="14" x2="21" y2="3"></line>
+                  </svg>
+                </a>
+              </article>
+            ))}
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <!-- SECCIÓN 2: AGENDA PÚBLICA DUAL (CALENDARIO + INSPECTOR) -->
+    <section class="section-container">
+      <div class="agenda-wrapper-card">
+        
+        <div class="agenda-top-bar">
+          <div>
+            <h2>Agenda Pública de Representación</h2>
+            <p>Consulta reuniones de departamento, plenos de CADUS y Juntas de la ETSI en tiempo real.</p>
+          </div>
+
+          <div class="filter-pills" id="category-filters">
+            <button class="filter-btn active" data-filter="all">Todos</button>
+            <button class="filter-btn" data-filter="CADUS">CADUS</button>
+            <button class="filter-btn" data-filter="Junta de Escuela">Junta ETSI</button>
+            <button class="filter-btn" data-filter="Sectorial">Sectoriales</button>
+          </div>
+        </div>
+
+        <div class="agenda-dual-grid">
+          
+          <!-- COLUMNA IZQUIERDA: CALENDARIO INTERACTIVO -->
+          <div class="calendar-widget">
+            <div class="calendar-header-nav">
+              <button id="prev-month" class="month-nav-btn" aria-label="Mes anterior">&lsaquo;</button>
+              <h3 id="calendar-month-year">Cargando...</h3>
+              <button id="next-month" class="month-nav-btn" aria-label="Mes siguiente">&rsaquo;</button>
+            </div>
+
+            <div class="weekdays-row">
+              <span>L</span><span>M</span><span>X</span><span>J</span><span>V</span><span>S</span><span>D</span>
+            </div>
+
+            <div id="calendar-days" class="days-matrix">
+              <!-- Días inyectados por JavaScript -->
+            </div>
+
+            <div class="calendar-legend">
+              <span class="legend-item"><span class="dot event"></span> Compromiso Agendado</span>
+              <span class="legend-item"><span class="dot selected"></span> Día Seleccionado</span>
+            </div>
+          </div>
+
+          <!-- COLUMNA DERECHA: INSPECTOR DE COMPROMISOS Y EVENTOS -->
+          <div class="events-inspector">
+            <div class="inspector-header">
+              <h3 id="inspector-title">Próximos compromisos</h3>
+              <button id="reset-day-filter" class="btn-reset-filter" style="display:none;">Ver todos los del mes</button>
+            </div>
+
+            <div id="events-list-container" class="events-vertical-list">
+              <!-- Lista inyectada por JavaScript -->
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+  </div>
+</Layout>
+
+<script id="agenda-json" type="application/json" is:inline set:html={JSON.stringify(listaEventos)}></script>
+
+<script is:inline>
+  document.addEventListener('DOMContentLoaded', () => {
+    const rawEvents = JSON.parse(document.getElementById('agenda-json').textContent || '[]');
+    
+    // Función auxiliar para obtener la fecha 'YYYY-MM-DD' limpia
+    function getCleanDateStr(fecha) {
+      if (!fecha) return '';
+      return String(fecha).split('T')[0];
+    }
+
+    let currentDate = new Date();
+    if (rawEvents.length > 0) {
+      const cleanFirst = getCleanDateStr(rawEvents[0].fecha);
+      const firstEvDate = new Date(cleanFirst + 'T00:00:00');
+      if (!isNaN(firstEvDate.getTime())) currentDate = firstEvDate;
+    }
+
+    let selectedFilter = 'all';
+    let selectedDayStr = null;
+
+    const monthYearTitle = document.getElementById('calendar-month-year');
+    const daysMatrix = document.getElementById('calendar-days');
+    const eventsContainer = document.getElementById('events-list-container');
+    const inspectorTitle = document.getElementById('inspector-title');
+    const resetFilterBtn = document.getElementById('reset-day-filter');
+
+    const monthsEs = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
+    const searchInput = document.getElementById('doc-search-input');
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase().trim();
+        const docCards = document.querySelectorAll('#docs-grid-container .doc-card');
+        docCards.forEach(card => {
+          const title = card.getAttribute('data-title');
+          const desc = card.getAttribute('data-desc');
+          if (title.includes(query) || desc.includes(query)) {
+            card.style.display = 'flex';
+          } else {
+            card.style.display = 'none';
+          }
+        });
+      });
+    }
+
+    const filterBtns = document.querySelectorAll('#category-filters .filter-btn');
+    filterBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        filterBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedFilter = btn.getAttribute('data-filter');
+        renderAll();
+      });
+    });
+
+    document.getElementById('prev-month').addEventListener('click', () => {
+      currentDate.setMonth(currentDate.getMonth() - 1);
+      selectedDayStr = null;
+      renderAll();
+    });
+
+    document.getElementById('next-month').addEventListener('click', () => {
+      currentDate.setMonth(currentDate.getMonth() + 1);
+      selectedDayStr = null;
+      renderAll();
+    });
+
+    resetFilterBtn.addEventListener('click', () => {
+      selectedDayStr = null;
+      renderAll();
+    });
+
+    function getFilteredEvents() {
+      return rawEvents.filter(ev => {
+        if (selectedFilter === 'all') return true;
+        return ev.tipo.toLowerCase().includes(selectedFilter.toLowerCase());
+      });
+    }
+
+    function renderAll() {
+      renderCalendar();
+      renderEventsList();
+    }
+
+    function renderCalendar() {
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+
+      monthYearTitle.textContent = `${monthsEs[month]} ${year}`;
+      daysMatrix.innerHTML = '';
+
+      const firstDayIndex = new Date(year, month, 1).getDay();
+      const offset = (firstDayIndex === 0) ? 6 : firstDayIndex - 1;
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+      const activeEvents = getFilteredEvents();
+
+      for (let i = 0; i < offset; i++) {
+        const emptyCell = document.createElement('div');
+        emptyCell.className = 'day-cell empty';
+        daysMatrix.appendChild(emptyCell);
+      }
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const cell = document.createElement('div');
+        cell.className = 'day-cell';
+
+        const monthStr = String(month + 1).padStart(2, '0');
+        const dayStr = String(d).padStart(2, '0');
+        const formattedDate = `${year}-${monthStr}-${dayStr}`;
+
+        const hasEvent = activeEvents.some(ev => getCleanDateStr(ev.fecha) === formattedDate);
+
+        if (hasEvent) cell.classList.add('has-event');
+        if (selectedDayStr === formattedDate) cell.classList.add('selected');
+
+        cell.innerHTML = `<span>${d}</span>${hasEvent ? '<span class="event-indicator"></span>' : ''}`;
+
+        cell.addEventListener('click', () => {
+          if (selectedDayStr === formattedDate) {
+            selectedDayStr = null;
+          } else {
+            selectedDayStr = formattedDate;
+          }
+          renderAll();
+        });
+
+        daysMatrix.appendChild(cell);
+      }
+    }
+
+    function renderEventsList() {
+      eventsContainer.innerHTML = '';
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+
+      let visibleEvents = getFilteredEvents().filter(ev => {
+        const cleanDate = getCleanDateStr(ev.fecha);
+        const evDate = new Date(cleanDate + 'T00:00:00');
+        return evDate.getFullYear() === year && evDate.getMonth() === month;
+      });
+
+      if (selectedDayStr) {
+        visibleEvents = visibleEvents.filter(ev => getCleanDateStr(ev.fecha) === selectedDayStr);
+        const [y, m, d] = selectedDayStr.split('-');
+        inspectorTitle.textContent = `Eventos del ${parseInt(d)} de ${monthsEs[parseInt(m)-1]}`;
+        resetFilterBtn.style.display = 'inline-block';
+      } else {
+        inspectorTitle.textContent = `Compromisos en ${monthsEs[month]}`;
+        resetFilterBtn.style.display = 'none';
+      }
+
+      if (visibleEvents.length === 0) {
+        eventsContainer.innerHTML = `
+          <div class="empty-state">
+            <p>No hay eventos registrados para este criterio en ${monthsEs[month]}.</p>
+          </div>
+        `;
+        return;
+      }
+
+      visibleEvents.forEach(ev => {
+        const cleanDate = getCleanDateStr(ev.fecha);
+        const evDate = new Date(cleanDate + 'T00:00:00');
+        const day = evDate.getDate().toString().padStart(2, '0');
+        const monthShort = monthsEs[evDate.getMonth()].slice(0, 3).toUpperCase();
+        const tagClass = ev.tipo.toLowerCase().includes('cadus') ? 'badge-cadus' :
+                         ev.tipo.toLowerCase().includes('junta') ? 'badge-junta' : 'badge-general';
+
+        const card = document.createElement('details');
+        card.className = 'event-item-card interactable';
+
+        card.innerHTML = `
+          <summary class="event-summary">
+            <div class="event-date-box">
+              <span class="num">${day}</span>
+              <span class="month">${monthShort}</span>
+            </div>
+            
+            <div class="event-content-header">
+              <div class="event-top-tags">
+                <span class="type-tag ${tagClass}">${ev.tipo}</span>
+                ${ev.horaInicio ? `<span class="time-tag">${ev.horaInicio}</span>` : ''}
+              </div>
+              <h4>${ev.titulo}</h4>
+            </div>
+            
+            <span class="accordion-arrow event-arrow">▼</span>
+          </summary>
+
+          <div class="event-expanded-content">
+            ${ev.lugar ? `<p class="location">📍 ${ev.lugar}</p>` : ''}
+            ${ev.descripcion ? `<p class="desc">${ev.descripcion}</p>` : ''}
+          </div>
+        `;
+
+        eventsContainer.appendChild(card);
+      });
+    }
+
+    renderAll();
+  });
+</script>
