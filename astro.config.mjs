@@ -1,4 +1,4 @@
-ç// @ts-check
+// @ts-check
 import { defineConfig } from 'astro/config';
 import db from '@astrojs/db';
 import vercel from '@astrojs/vercel';
