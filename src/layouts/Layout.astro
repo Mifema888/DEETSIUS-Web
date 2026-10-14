@@ -1,6 +1,5 @@
 ---
 import Header from '../components/Header.astro';
-
 interface Props {
     title: string;
 }
@@ -16,6 +15,17 @@ const { title } = Astro.props;
         <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <title>{title}</title>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#1e88e5" />
+        <script>
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').catch((err) => {
+                    console.log('Error al registrar el service worker: ', err);
+                });
+                });
+            }
+        </script>
     </head>
     <body>
         <Header />
