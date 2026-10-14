@@ -124,6 +124,15 @@ export const EventosAgenda = defineTable({
   }
 });
 
+export const FAQs = defineTable({
+  columns: {
+    id: column.number({ primaryKey: true }),
+    pregunta: column.text(),
+    respuesta: column.text(),
+    categoria: column.text({ default: 'General' }), // Ej: 'Préstamos', 'Normativa', 'General'
+  }
+});
+
 export default defineDb({
   tables: {
     Noticias,
@@ -135,7 +144,8 @@ export default defineDb({
     EstadoDelegacion,
     SesionesLog,
     Documentos,
-    EventosAgenda
+    EventosAgenda,
+    FAQs
   },
 
   

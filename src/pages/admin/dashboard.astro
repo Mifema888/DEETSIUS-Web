@@ -16,6 +16,7 @@ import {
   SesionesLog,
   Documentos,
   EventosAgenda,
+  FAQs,
   eq, 
   desc,
   gte
@@ -353,76 +354,103 @@ if (Astro.request.method === 'POST') {
     }
 
     // 6.C CAMBIAR ESTADO DE REPORTE DE ALUMNO (BUSCADOS)
-    else if (action === 'actualizar_estado_reporte') {
-      const reporteId = Number(formData.get('reporte_id'));
-      const nuevoEstado = formData.get('nuevo_estado')?.toString() || 'Contactado';
+        else if (action === 'actualizar_estado_reporte') {
+          const reporteId = Number(formData.get('reporte_id'));
+          const nuevoEstado = String(formData.get('nuevo_estado') || 'Contactado');
 
-      if (reporteId) {
-        await db.update(ReportesObjetosPerdidos)
-          .set({ estado: nuevoEstado })
-          .where(eq(ReportesObjetosPerdidos.id, reporteId));
-        return Astro.redirect(`${url.pathname}?success=${encodeURIComponent('Estado de la solicitud actualizado.')}`);
+          if (reporteId) {
+            await db.update(ReportesObjetosPerdidos)
+              .set({ estado: nuevoEstado })
+              .where(eq(ReportesObjetosPerdidos.id, reporteId));
+            return Astro.redirect(`${url.pathname}?success=${encodeURIComponent('Estado de la solicitud actualizado.')}`);
+          }
+        }
+
+        // 6.D ELIMINAR REPORTE DE ESTUDIANTE
+        else if (action === 'eliminar_reporte') {
+          const reporteId = Number(formData.get('reporte_id'));
+          if (reporteId) {
+            await db.delete(ReportesObjetosPerdidos).where(eq(ReportesObjetosPerdidos.id, reporteId));
+            return Astro.redirect(`${url.pathname}?success=${encodeURIComponent('Solicitud de objeto perdido eliminada.')}`);
+          }
+        }
+
+        // 7. REGISTRAR INCIDENCIA MANUAL
+        else if (action === 'crear_incidencia') {
+          const alumno = String(formData.get('alumno') || '').trim();
+          const dni = String(formData.get('dni') || '').trim().toUpperCase();
+          const tipoElemento = String(formData.get('tipoElemento') || 'Sanción Manual').trim();
+          const motivo = String(formData.get('motivo') || '').trim();
+
+          if (alumno && dni && motivo) {
+            await db.insert(Incidencias).values({
+              alumno,
+              dni,
+              tipoElemento,
+              motivo,
+              fechaRegistro: new Date(),
+            });
+            return Astro.redirect(`${url.pathname}?success=${encodeURIComponent('Sanción añadida a la lista negra.')}`);
+          } else {
+            return Astro.redirect(`${url.pathname}?error=${encodeURIComponent('Por favor, completa los campos requeridos.')}`);
+          }
+        }
+
+        // 8. RESOLVER INCIDENCIA
+        else if (action === 'resolver_incidencia') {
+          const incidenciaId = Number(formData.get('incidencia_id'));
+          if (incidenciaId) {
+            await db.delete(Incidencias).where(eq(Incidencias.id, incidenciaId));
+            return Astro.redirect(`${url.pathname}?success=${encodeURIComponent('Incidencia retirada.')}`);
+          }
+        }
+
+        // 9. CREAR PREGUNTA FRECUENTE (FAQ)
+        else if (action === 'crear_faq') {
+          const pregunta = String(formData.get('pregunta') || '').trim();
+          const respuesta = String(formData.get('respuesta') || '').trim();
+          const categoria = String(formData.get('categoria') || 'General').trim();
+
+          if (pregunta && respuesta) {
+            await db.insert(FAQs).values({
+              pregunta,
+              respuesta,
+              categoria
+            });
+            return Astro.redirect(`${url.pathname}?success=${encodeURIComponent('Pregunta frecuente añadida correctamente.')}`);
+          } else {
+            return Astro.redirect(`${url.pathname}?error=${encodeURIComponent('La pregunta y la respuesta son obligatorias.')}`);
+          }
+        }
+
+        // 10. ELIMINAR PREGUNTA FRECUENTE
+        else if (action === 'eliminar_faq') {
+          const faqId = Number(formData.get('faq_id') || 0);
+          if (faqId > 0) {
+            await db.delete(FAQs).where(eq(FAQs.id, faqId));
+            return Astro.redirect(`${url.pathname}?success=${encodeURIComponent('Pregunta frecuente eliminada.')}`);
+          }
+        }
+
+      } catch (e) {
+        console.error('Error en el Dashboard:', e);
+        return Astro.redirect(`${url.pathname}?error=${encodeURIComponent('Error al procesar la solicitud.')}`);
       }
     }
 
-    // 6.D ELIMINAR REPORTE DE Estudiante
-    else if (action === 'eliminar_reporte') {
-      const reporteId = Number(formData.get('reporte_id'));
-      if (reporteId) {
-        await db.delete(ReportesObjetosPerdidos).where(eq(ReportesObjetosPerdidos.id, reporteId));
-        return Astro.redirect(`${url.pathname}?success=${encodeURIComponent('Solicitud de objeto perdido eliminada.')}`);
-      }
-    }
-
-    // 7. REGISTRAR INCIDENCIA MANUAL
-    else if (action === 'crear_incidencia') {
-      const alumno = formData.get('alumno')?.toString().trim() || '';
-      const dni = formData.get('dni')?.toString().trim().toUpperCase() || '';
-      const tipoElemento = formData.get('tipoElemento')?.toString().trim() || 'Sanción Manual';
-      const motivo = formData.get('motivo')?.toString().trim() || '';
-
-      if (alumno && dni && motivo) {
-        await db.insert(Incidencias).values({
-          alumno,
-          dni,
-          tipoElemento,
-          motivo,
-          fechaRegistro: new Date(),
-        });
-        return Astro.redirect(`${url.pathname}?success=${encodeURIComponent('Sanción añadida a la lista negra.')}`);
-      } else {
-        return Astro.redirect(`${url.pathname}?error=${encodeURIComponent('Por favor, completa los campos requeridos.')}`);
-      }
-    }
-
-    // 8. RESOLVER INCIDENCIA
-    else if (action === 'resolver_incidencia') {
-      const incidenciaId = Number(formData.get('incidencia_id'));
-      if (incidenciaId) {
-        await db.delete(Incidencias).where(eq(Incidencias.id, incidenciaId));
-        return Astro.redirect(`${url.pathname}?success=${encodeURIComponent('Incidencia retirada.')}`);
-      }
-    }
-
-  } catch (e) {
-    console.error('Error en el Dashboard:', e);
-    return Astro.redirect(`${url.pathname}?error=${encodeURIComponent('Error al procesar la solicitud.')}`);
-  }
-}
-
-// Consultas a la base de datos
-const estadoDelegacionQuery = await db.select().from(EstadoDelegacion);
-const estaAbierto = estadoDelegacionQuery.length > 0 ? estadoDelegacionQuery[0].abierto : false;
-
-const listaDocumentos = await db.select().from(Documentos);
-const listaEventos = await db.select().from(EventosAgenda).orderBy(desc(EventosAgenda.fecha));
-const noticias = await db.select().from(Noticias).orderBy(desc(Noticias.fechaPublicacion));
-const prestamosList = await db.select().from(Prestamos);
-const prestamosActivosList = await db.select().from(RegPrestamos).where(eq(RegPrestamos.estado, 'Activo')).orderBy(desc(RegPrestamos.fechaPrestamo));
-const objetosList = await db.select().from(ObjetosCustodiados).orderBy(desc(ObjetosCustodiados.id));
-const reportesList = await db.select().from(ReportesObjetosPerdidos).orderBy(desc(ReportesObjetosPerdidos.fechaReporte));
-const incidenciasList = await db.select().from(Incidencias).orderBy(desc(Incidencias.fechaRegistro));
----
+    // Consultas a la base de datos
+    const estadoDelegacionQuery = await db.select().from(EstadoDelegacion);
+    const estaAbierto = estadoDelegacionQuery.length > 0 ? estadoDelegacionQuery[0].abierto : false;
+    const faqsList = await db.select().from(FAQs);
+    const listaDocumentos = await db.select().from(Documentos);
+    const listaEventos = await db.select().from(EventosAgenda).orderBy(desc(EventosAgenda.fecha));
+    const noticias = await db.select().from(Noticias).orderBy(desc(Noticias.fechaPublicacion));
+    const prestamosList = await db.select().from(Prestamos);
+    const prestamosActivosList = await db.select().from(RegPrestamos).where(eq(RegPrestamos.estado, 'Activo')).orderBy(desc(RegPrestamos.fechaPrestamo));
+    const objetosList = await db.select().from(ObjetosCustodiados).orderBy(desc(ObjetosCustodiados.id));
+    const reportesList = await db.select().from(ReportesObjetosPerdidos).orderBy(desc(ReportesObjetosPerdidos.fechaReporte));
+    const incidenciasList = await db.select().from(Incidencias).orderBy(desc(Incidencias.fechaRegistro));
+    ---
 
 <Layout title="Panel de Administración - DEETSIUS-Web">
   <div class="dashboard-container">
@@ -768,7 +796,80 @@ const incidenciasList = await db.select().from(Incidencias).orderBy(desc(Inciden
           </table>
         </div>
       </section>
+      <!-- ==========================================
+          MÓDULO: GESTIÓN DE PREGUNTAS FRECUENTES (FAQ)
+          ========================================== -->
+      <div class="admin-panel" style="margin-top: 2rem;">
+        <h2>❓ Gestión de Preguntas Frecuentes (FAQ)</h2>
+        <p class="panel-desc">Añade o elimina las dudas comunes que ven los estudiantes en la página pública de ayuda.</p>
+        
+        <h3 class="subheading">Añadir Nueva Pregunta</h3>
+        <form method="POST" class="admin-form grid-form">
+          <input type="hidden" name="action" value="crear_faq" />
+          
+          <div class="form-group">
+            <label>Categoría</label>
+            <select name="categoria">
+              <option value="General">General</option>
+              <option value="Préstamos">Préstamos de Material</option>
+              <option value="Normativa">Normativa y Trámites</option>
+              <option value="Representación">Representación</option>
+            </select>
+          </div>
 
+          <div class="form-group full-width">
+            <label>Pregunta</label>
+            <input type="text" name="pregunta" required placeholder="Ej: ¿Dónde se encuentra la sala de la Delegación?" />
+          </div>
+
+          <div class="form-group full-width">
+            <label>Respuesta</label>
+            <textarea name="respuesta" rows="3" required placeholder="Escribe aquí la respuesta detallada..."></textarea>
+          </div>
+
+          <div class="full-width">
+            <button type="submit" class="btn btn-primary">Publicar Pregunta</button>
+          </div>
+        </form>
+
+        <h3 class="subheading">Preguntas Publicadas</h3>
+        <div class="table-wrapper">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Categoría</th>
+                <th>Pregunta</th>
+                <th>Respuesta</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {faqsList.length === 0 ? (
+                <tr>
+                  <td colspan="4" class="empty-cell">No hay preguntas frecuentes registradas.</td>
+                </tr>
+              ) : null}
+              
+              {faqsList.map((faq) => (
+                <tr>
+                  <td data-label="Categoría"><span class="tag">{faq.categoria}</span></td>
+                  <td data-label="Pregunta"><strong>{faq.pregunta}</strong></td>
+                  <td data-label="Respuesta">{faq.respuesta}</td>
+                  <td data-label="Acciones">
+                    <div class="action-buttons-cell">
+                      <form method="POST" onsubmit="return confirm('¿Seguro que quieres eliminar esta pregunta?');" style="margin: 0;">
+                        <input type="hidden" name="action" value="eliminar_faq" />
+                        <input type="hidden" name="faq_id" value={faq.id} />
+                        <button type="submit" class="btn-danger-sm" title="Eliminar pregunta">Borrar</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
       <!-- SECCIÓN 3: INCIDENCIAS / LISTA NEGRA -->
       <section class="admin-panel">
         <h2>⚠️ Incidencias / Lista Negra</h2>

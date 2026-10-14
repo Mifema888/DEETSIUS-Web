@@ -1,0 +1,171 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+// Estado temporal: ponlo a `true` si en el futuro decides activar tarjetas de eventos
+const hayEventosActivos = false;
+
+// Si en el futuro quieres añadir eventos manuales específicos de esta sección:
+const eventosPropios = [
+  // { titulo: "Torneo de Ajedrez ETSI", fecha: "15 de Noviembre", lugar: "Hall Central", desc: "..." }
+];
+---
+
+<Layout title="Eventos y Actividades - DEETSIUS">
+  <div class="eventos-container">
+    
+    <!-- Encabezado de la Subpágina -->
+    <header class="eventos-header">
+      <span class="badge-orange">Vida Estudiantil</span>
+      <h1>Eventos y Actividades</h1>
+      <p>Jornadas, talleres, torneos y actividades culturales organizadas por y para los estudiantes de la ETSI.</p>
+    </header>
+
+    <!-- Contenido Principal -->
+    <main class="eventos-content">
+        <!-- Estado Vacío Independiente (Empty State) -->
+        <div class="card-base empty-state-card">
+          <div class="empty-icon-wrapper">
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#f58220" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+            </svg>
+          </div>
+          <h2>No hay actividades ni eventos programados por ahora</h2>
+          <p>
+            Estamos preparando las próximas actividades, talleres y eventos de integración para el curso. 
+            ¡Permanece atento a nuestras redes sociales o pásate por la sala de la Delegación para proponer tus ideas!
+          </p>
+
+          <div class="empty-actions">
+            <a href="/" class="btn-primary-link">Volver al Inicio</a>
+            <a href="/contacto" class="btn-secondary-link">Contactar con la Delegación</a>
+          </div>
+        </div>
+      )
+    </main>
+
+  </div>
+</Layout>
+
+<style>
+  .eventos-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+  }
+
+  .eventos-header {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+
+  .eventos-header h1 {
+    color: #0f172a;
+    font-size: 1.8rem;
+    font-weight: 800;
+    margin: 0.6rem 0 0.4rem 0;
+    letter-spacing: -0.5px;
+  }
+
+  .eventos-header p {
+    color: #64748b;
+    font-size: 1rem;
+    max-width: 600px;
+    margin: 0 auto;
+    line-height: 1.5;
+  }
+
+  /* Tarjeta de Estado Vacío (Empty State) */
+  .empty-state-card {
+    text-align: center;
+    padding: 3rem 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+  }
+
+  .empty-icon-wrapper {
+    background-color: #fff3e0;
+    padding: 1.2rem;
+    border-radius: 50%;
+    margin-bottom: 1.2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .empty-state-card h2 {
+    color: #0f172a;
+    font-size: 1.35rem;
+    font-weight: 700;
+    margin: 0 0 0.6rem 0;
+  }
+
+  .empty-state-card p {
+    color: #64748b;
+    font-size: 0.95rem;
+    max-width: 500px;
+    margin: 0 0 1.8rem 0;
+    line-height: 1.6;
+  }
+
+  .empty-actions {
+    display: flex;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .btn-primary-link {
+    background-color: #1e88e5;
+    color: #ffffff;
+    padding: 0.6rem 1.2rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 0.88rem;
+    transition: background-color 0.2s;
+  }
+
+  .btn-primary-link:hover {
+    background-color: #1565c0;
+  }
+
+  .btn-secondary-link {
+    background-color: #f1f5f9;
+    color: #334155;
+    border: 1px solid #cbd5e1;
+    padding: 0.6rem 1.2rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.88rem;
+    transition: background-color 0.2s;
+  }
+
+  .btn-secondary-link:hover {
+    background-color: #e2e8f0;
+  }
+
+  @media (max-width: 600px) {
+    .eventos-container {
+      padding: 1.5rem 1rem;
+    }
+    
+    .empty-state-card {
+      padding: 2rem 1rem;
+    }
+
+    .empty-actions {
+      flex-direction: column;
+      width: 100%;
+    }
+
+    .btn-primary-link, .btn-secondary-link {
+      width: 100%;
+      text-align: center;
+    }
+  }
+</style>
