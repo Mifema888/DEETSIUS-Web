@@ -529,138 +529,6 @@ if (Astro.request.method === 'POST') {
 
     <div class="dashboard-grid">
 
-    <!-- SECCIÓN 1: GESTIÓN DE NOTICIAS -->
-    <section class="admin-panel">
-      <h2>📢 Crear Noticia o Aviso</h2>
-      
-      <form method="POST" class="admin-form">
-        <input type="hidden" name="action" value="crear_noticia" />
-
-        <!-- Título y Subtítulo en fila -->
-        <div class="form-row">
-          <div class="form-group flex-2">
-            <label for="titulo">Título de la noticia/aviso *</label>
-            <input type="text" id="titulo" name="titulo" required placeholder="Ej: Horario especial de exámenes" autocomplete="off" />
-          </div>
-
-          <div class="form-group flex-1">
-            <label for="categoria">Categoría</label>
-            <select id="categoria" name="categoria">
-              <option value="General" selected>Noticia General</option>
-              <option value="Becas">Becas / Ayudas</option>
-              <option value="Eventos">Evento / Actividad</option>
-              <option value="Académico">Académico</option>
-              <option value="Aviso">Aviso URGENTE</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label for="subtitulo">Subtítulo (Opcional)</label>
-          <input type="text" id="subtitulo" name="subtitulo" placeholder="Ej: Se amplía la apertura de la biblioteca hasta las 22:00" autocomplete="off" />
-        </div>
-
-        <!-- Resumen, URL de Imagen y Selección de Encuadre -->
-        <div class="form-row">
-          <div class="form-group flex-2">
-            <label for="resumen">Resumen corto (Opcional)</label>
-            <input type="text" id="resumen" name="resumen" placeholder="Texto breve que aparecerá en la tarjeta de la portada" />
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group flex-2">
-            <label for="urlImagen">URL Imagen de portada (Opcional)</label>
-            <input type="url" id="urlImagen" name="urlImagen" placeholder="https://ejemplo.com/imagen.jpg" />
-          </div>
-
-          <!-- SELECCIÓN DEL ENCUADRE DE LA FOTO -->
-          <div class="form-group flex-1">
-            <label for="posicionImagen">Encuadre de la foto</label>
-            <select id="posicionImagen" name="posicionImagen">
-              <option value="center" selected>Centrado (Por defecto)</option>
-              <option value="top">Enfocar Arriba</option>
-              <option value="bottom">Enfocar Abajo</option>
-              <option value="left">Enfocar Izquierda</option>
-              <option value="right">Enfocar Derecha</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Contenido Principal -->
-        <div class="form-group">
-          <label for="contenido">Contenido Completo *</label>
-          <textarea id="contenido" name="contenido" rows="5" required placeholder="Escribe aquí el texto completo de la noticia..."></textarea>
-        </div>
-
-        <!-- Checkbox Urgente / Destacada -->
-        <div class="form-group-checkbox">
-          <label class="checkbox-label">
-            <input type="checkbox" id="destacada" name="destacada" value="on" />
-            <span>Marcar como noticia <strong>destacada / urgente</strong></span>
-          </label>
-        </div>
-
-        <button type="submit" class="btn btn-primary">Publicar Noticia</button>
-      </form>
-
-      <h3 class="subheading">Noticias Publicadas</h3>
-      
-      <div class="table-wrapper">
-        <table class="admin-table">
-          <thead>
-            <tr>
-              <th>Título</th>
-              <th>Categoría</th>
-              <th>Fecha</th>
-              <th>Destacada</th>
-              <th>Acción</th>
-            </tr>
-          </thead>
-          <tbody>
-            {noticias.length > 0 ? (
-              noticias.map((n) => (
-                <tr>
-                  <td data-label="Título">
-                    <strong>{n.titulo}</strong>
-                  </td>
-                  <td data-label="Categoría">
-                    <span class="tag">{n.categoria}</span>
-                  </td>
-                  <td data-label="Fecha">
-                    {new Date(n.fechaPublicacion).toLocaleDateString('es-ES', {
-                      day: '2-digit',
-                      month: '2-digit',
-                      year: 'numeric'
-                    })}
-                  </td>
-                  <td data-label="Destacada">
-                    {n.destacada ? (
-                      <span class="badge-urgent">SÍ</span>
-                    ) : (
-                      <span class="badge-normal">No</span>
-                    )}
-                  </td>
-                  <td data-label="Acción">
-                    <form method="POST" style="display:inline;">
-                      <input type="hidden" name="action" value="eliminar_noticia" />
-                      <input type="hidden" name="noticia_id" value={n.id} />
-                      <button type="submit" class="btn-danger-sm" onclick="return confirm('¿Seguro que deseas eliminar esta noticia?')">
-                        Eliminar
-                      </button>
-                    </form>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colspan="5" class="empty-cell">No hay noticias publicadas por el momento.</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </section>
       <!-- SECCIÓN 2: PRÉSTAMOS DE MATERIAL Y STOCK -->
       <section class="admin-panel">
         <h2>🥼 Nuevo Préstamo de Material</h2>
@@ -796,6 +664,141 @@ if (Astro.request.method === 'POST') {
           </table>
         </div>
       </section>
+
+    <!-- SECCIÓN 1: GESTIÓN DE NOTICIAS -->
+    <section class="admin-panel">
+      <h2>📢 Crear Noticia o Aviso</h2>
+      
+      <form method="POST" class="admin-form">
+        <input type="hidden" name="action" value="crear_noticia" />
+
+        <!-- Título y Subtítulo en fila -->
+        <div class="form-row">
+          <div class="form-group flex-2">
+            <label for="titulo">Título de la noticia/aviso *</label>
+            <input type="text" id="titulo" name="titulo" required placeholder="Ej: Horario especial de exámenes" autocomplete="off" />
+          </div>
+
+          <div class="form-group flex-1">
+            <label for="categoria">Categoría</label>
+            <select id="categoria" name="categoria">
+              <option value="General" selected>Noticia General</option>
+              <option value="Becas">Becas / Ayudas</option>
+              <option value="Eventos">Evento / Actividad</option>
+              <option value="Académico">Académico</option>
+              <option value="Aviso">Aviso URGENTE</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="subtitulo">Subtítulo (Opcional)</label>
+          <input type="text" id="subtitulo" name="subtitulo" placeholder="Ej: Se amplía la apertura de la biblioteca hasta las 22:00" autocomplete="off" />
+        </div>
+
+        <!-- Resumen, URL de Imagen y Selección de Encuadre -->
+        <div class="form-row">
+          <div class="form-group flex-2">
+            <label for="resumen">Resumen corto (Opcional)</label>
+            <input type="text" id="resumen" name="resumen" placeholder="Texto breve que aparecerá en la tarjeta de la portada" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group flex-2">
+            <label for="urlImagen">URL Imagen de portada (Opcional)</label>
+            <input type="url" id="urlImagen" name="urlImagen" placeholder="https://ejemplo.com/imagen.jpg" />
+          </div>
+
+          <!-- SELECCIÓN DEL ENCUADRE DE LA FOTO -->
+          <div class="form-group flex-1">
+            <label for="posicionImagen">Encuadre de la foto</label>
+            <select id="posicionImagen" name="posicionImagen">
+              <option value="center" selected>Centrado (Por defecto)</option>
+              <option value="top">Enfocar Arriba</option>
+              <option value="bottom">Enfocar Abajo</option>
+              <option value="left">Enfocar Izquierda</option>
+              <option value="right">Enfocar Derecha</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Contenido Principal -->
+        <div class="form-group">
+          <label for="contenido">Contenido Completo *</label>
+          <textarea id="contenido" name="contenido" rows="5" required placeholder="Escribe aquí el texto completo de la noticia..."></textarea>
+        </div>
+
+        <!-- Checkbox Urgente / Destacada -->
+        <div class="form-group-checkbox">
+          <label class="checkbox-label">
+            <input type="checkbox" id="destacada" name="destacada" value="on" />
+            <span>Marcar como noticia <strong>destacada / urgente</strong></span>
+          </label>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Publicar Noticia</button>
+      </form>
+
+      <h3 class="subheading">Noticias Publicadas</h3>
+      
+      <div class="table-wrapper">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Título</th>
+              <th>Categoría</th>
+              <th>Fecha</th>
+              <th>Destacada</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody>
+            {noticias.length > 0 ? (
+              noticias.map((n) => (
+                <tr>
+                  <td data-label="Título">
+                    <strong>{n.titulo}</strong>
+                  </td>
+                  <td data-label="Categoría">
+                    <span class="tag">{n.categoria}</span>
+                  </td>
+                  <td data-label="Fecha">
+                    {new Date(n.fechaPublicacion).toLocaleDateString('es-ES', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric'
+                    })}
+                  </td>
+                  <td data-label="Destacada">
+                    {n.destacada ? (
+                      <span class="badge-urgent">SÍ</span>
+                    ) : (
+                      <span class="badge-normal">No</span>
+                    )}
+                  </td>
+                  <td data-label="Acción">
+                    <form method="POST" style="display:inline;">
+                      <input type="hidden" name="action" value="eliminar_noticia" />
+                      <input type="hidden" name="noticia_id" value={n.id} />
+                      <button type="submit" class="btn-danger-sm" onclick="return confirm('¿Seguro que deseas eliminar esta noticia?')">
+                        Eliminar
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colspan="5" class="empty-cell">No hay noticias publicadas por el momento.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+
       <!-- ==========================================
           MÓDULO: GESTIÓN DE PREGUNTAS FRECUENTES (FAQ)
           ========================================== -->
