@@ -6,7 +6,7 @@ export const Noticias = defineTable({
     id: column.number({ primaryKey: true }),
     titulo: column.text(),
     subtitulo: column.text({ optional: true }),
-    categoria: column.text({ default: 'Aviso' }), // Ej: 'Aviso', 'Académico', 'Evento', 'Becas'
+    categoria: column.text({ default: 'Aviso' }),
     contenido: column.text(),
     resumen: column.text({ optional: true }),
     urlImagen: column.text({ optional: true }),
@@ -32,48 +32,49 @@ export const RegPrestamos = defineTable({
   columns: {
     id: column.number({ primaryKey: true }),
     alumno: column.text(),
-    dni: column.text(),
-    telefono: column.text({ optional: true }),
+    telefono: column.text(),
     curso: column.text({ optional: true }),
     tipoElemento: column.text(),
+    numeroObjeto: column.text(), // Identificador de la bata/objeto numerado
     fechaPrestamo: column.date({ default: NOW }),
     estado: column.text({ default: 'Activo' }),
   },
 });
 
-// 3. OBJETOS EN CUSTODIA (Objetos reales que tiene la Delegación)
+// 3. OBJETOS EN CUSTODIA
 export const ObjetosCustodiados = defineTable({
   columns: {
     id: column.number({ primaryKey: true }),
-    objeto: column.text(),                         // Qué es (Ej: Mochila negra)
-    lugar: column.text(),                          // Dónde se encontró (PRIVADO: Solo para el Dashboard)
-    fechaRecepcion: column.date({ default: NOW }), // Cuándo se encontró (PRIVADO: Solo para el Dashboard)
-    rasgos: column.text({ optional: true }),       // Descripción pública (Visible en Servicios y Dashboard)
-    estado: column.text({ default: 'En Custodia' }),// 'En Custodia' | 'Devuelto'
+    objeto: column.text(),                    
+    lugar: column.text(),                     
+    fechaRecepcion: column.date({ default: NOW }), 
+    rasgos: column.text({ optional: true }),      
+    estado: column.text({ default: 'En Custodia' }),
   },
 });
 
-// 4. REPORTES DE OBJETOS PERDIDOS (Enviados por los alumnos desde la web)
+// 4. REPORTES DE OBJETOS PERDIDOS
 export const ReportesObjetosPerdidos = defineTable({
   columns: {
     id: column.number({ primaryKey: true }),
     nombreAlumno: column.text(),
     telefono: column.text(),
-    objeto: column.text(),                         // Qué objeto busca
-    lugar: column.text({ optional: true }),        // Dónde cree que lo perdió
-    fechaPerdida: column.text({ optional: true }),  // Cuándo lo perdió aproximadamente
-    rasgos: column.text({ optional: true }),       // Detalles para identificarlo
+    objeto: column.text(),                    
+    lugar: column.text({ optional: true }),        
+    fechaPerdida: column.text({ optional: true }),  
+    rasgos: column.text({ optional: true }),      
     fechaReporte: column.date({ default: NOW }),
-    estado: column.text({ default: 'Pendiente' }), // 'Pendiente' | 'Contactado' | 'Resuelto'
+    estado: column.text({ default: 'Pendiente' }), 
   },
 });
 
-// 5. SANCIONES E INCIDENCIAS (Lista Negra)
+// 5. SANCIONES E INCIDENCIAS (Lista Negra por Teléfono y Objeto)
 export const Incidencias = defineTable({
   columns: {
     id: column.number({ primaryKey: true }),
     alumno: column.text(),
-    dni: column.text(),
+    telefono: column.text(), // El bloqueo por lista negra ahora actúa por teléfono
+    numeroObjeto: column.text({ optional: true }), // Guarda el número de la bata perdida
     tipoElemento: column.text({ default: 'Sanción Manual' }),
     motivo: column.text(),
     fechaRegistro: column.date({ default: NOW }),
@@ -105,10 +106,10 @@ export const Documentos = defineTable({
   columns: {
     id: column.number({ primaryKey: true }),
     titulo: column.text(),
-    categoria: column.text(), // 'Estudiantes', 'Profesorado', 'Normativa'
+    categoria: column.text(),
     descripcion: column.text(),
     urlDescarga: column.text(),
-    tamano: column.text({ optional: true }), // Ej: 'PDF (450 KB)'
+    tamano: column.text({ optional: true }),
   }
 });
 
@@ -116,10 +117,10 @@ export const EventosAgenda = defineTable({
   columns: {
     id: column.number({ primaryKey: true }),
     titulo: column.text(),
-    tipo: column.text(), // 'CADUS', 'Junta de Escuela', 'Sectorial', 'Consejo Dpto', 'Otro'
+    tipo: column.text(),
     fecha: column.date(),
-    horaInicio: column.text({ optional: true }), // Ej: '10:00'
-    lugar: column.text({ optional: true }), // Ej: 'Salón de Actos'
+    horaInicio: column.text({ optional: true }),
+    lugar: column.text({ optional: true }),
     descripcion: column.text({ optional: true }),
   }
 });
@@ -129,7 +130,7 @@ export const FAQs = defineTable({
     id: column.number({ primaryKey: true }),
     pregunta: column.text(),
     respuesta: column.text(),
-    categoria: column.text({ default: 'General' }), // Ej: 'Préstamos', 'Normativa', 'General'
+    categoria: column.text({ default: 'General' }),
   }
 });
 
@@ -147,6 +148,4 @@ export default defineDb({
     EventosAgenda,
     FAQs
   },
-
-  
 });

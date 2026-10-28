@@ -134,19 +134,20 @@ if (Astro.request.method === 'POST') {
       }
     }
 
-    // 3. REGISTRAR PRÉSTAMO DE MATERIAL
+    // 3. REGISTRAR PRÉSTAMO DE MATERIAL (Con numeración de objeto y bloqueo por teléfono)
     else if (action === 'solicitar_prestamo') {
-      const alumno = formData.get('alumno')?.toString().trim() || '';
-      const dni = formData.get('dni')?.toString().trim().toUpperCase() || '';
-      const telefono = formData.get('telefono')?.toString().trim() || '';
-      const curso = formData.get('curso')?.toString().trim() || '';
-      const tipoElemento = formData.get('tipoElemento')?.toString().trim() || '';
+      const alumno = String(formData.get('alumno') || '').trim();
+      const telefono = String(formData.get('telefono') || '').trim();
+      const curso = String(formData.get('curso') || '').trim();
+      const tipoElemento = String(formData.get('tipoElemento') || '').trim();
+      const numeroObjeto = String(formData.get('numeroObjeto') || '').trim();
 
-      if (alumno && dni && telefono && curso && tipoElemento) {
-        const incidenciasPrevias = await db.select().from(Incidencias).where(eq(Incidencias.dni, dni));
+      if (alumno && telefono && curso && tipoElemento && numeroObjeto) {
+        // Comprobamos la lista negra usando el TELÉFONO en lugar del DNI
+        const incidenciasPrevias = await db.select().from(Incidencias).where(eq(Incidencias.telefono, telefono));
 
         if (incidenciasPrevias.length > 0) {
-          return Astro.redirect(`${url.pathname}?error=${encodeURIComponent(`Préstamo rechazado: El alumno con DNI "${dni}" figura en la lista negra.`)}`);
+          return Astro.redirect(`${url.pathname}?error=${encodeURIComponent(`Préstamo rechazado: El teléfono "${telefono}" figura en la lista negra.`)}`);
         } else {
           const materialList = await db.select().from(Prestamos).where(eq(Prestamos.nombre, tipoElemento));
 
@@ -155,10 +156,10 @@ if (Astro.request.method === 'POST') {
 
             await db.insert(RegPrestamos).values({
               alumno,
-              dni,
               telefono,
               curso,
               tipoElemento,
+              numeroObjeto,
               fechaPrestamo: new Date(),
               estado: 'Activo'
             });
@@ -168,16 +169,15 @@ if (Astro.request.method === 'POST') {
               .set({ disponibles: nuevosDisponibles })
               .where(eq(Prestamos.id, material.id));
 
-            return Astro.redirect(`${url.pathname}?success=${encodeURIComponent(`Préstamo de "${tipoElemento}" concedido a ${alumno}.`)}`);
+            return Astro.redirect(`${url.pathname}?success=${encodeURIComponent(`Préstamo de "${tipoElemento}" (Nº: ${numeroObjeto}) concedido a ${alumno}.`)}`);
           } else {
             return Astro.redirect(`${url.pathname}?error=${encodeURIComponent('No quedan unidades disponibles de este material.')}`);
           }
         }
       } else {
-        return Astro.redirect(`${url.pathname}?error=${encodeURIComponent('Por favor, rellena todos los campos del formulario.')}`);
+        return Astro.redirect(`${url.pathname}?error=${encodeURIComponent('Por favor, completa todos los campos, incluyendo la numeración del objeto.')}`);
       }
     }
-
     // 4. AÑADIR DOCUMENTO DE NORMATIVA
     else if (action === 'crear_documento') {
       const titulo = formData.get('titulo')?.toString().trim() || '';
@@ -265,20 +265,21 @@ if (Astro.request.method === 'POST') {
         return Astro.redirect(`${url.pathname}?success=${encodeURIComponent('Devolución registrada correctamente.')}`);
       }
     }
-
     // 4.B MARCAR INCIDENCIA DESDE PRÉSTAMO
     else if (action === 'marcar_incidencia_prestamo') {
       const prestamoId = Number(formData.get('prestamo_id'));
-      const alumno = formData.get('alumno')?.toString().trim() || '';
-      const dni = formData.get('dni')?.toString().trim().toUpperCase() || '';
-      const tipoElemento = formData.get('tipoElemento')?.toString().trim() || 'Objeto';
+      const alumno = String(formData.get('alumno') || '').trim();
+      const telefono = String(formData.get('telefono') || '').trim();
+      const numeroObjeto = String(formData.get('numeroObjeto') || '').trim();
+      const tipoElemento = String(formData.get('tipoElemento') || 'Objeto').trim();
 
-      if (alumno && dni && prestamoId) {
+      if (alumno && telefono && prestamoId) {
         await db.insert(Incidencias).values({
           alumno,
-          dni,
+          telefono,
+          numeroObjeto,
           tipoElemento,
-          motivo: `No devuelto - ${tipoElemento}`,
+          motivo: `No devuelto - ${tipoElemento} (Nº: ${numeroObjeto})`,
           fechaRegistro: new Date(),
         });
 
@@ -297,12 +298,11 @@ if (Astro.request.method === 'POST') {
             .where(eq(Prestamos.id, material.id));
         }
 
-        return Astro.redirect(`${url.pathname}?success=${encodeURIComponent(`Incidencia registrada y total de inventario reducido para ${tipoElemento}.`)}`);
+        return Astro.redirect(`${url.pathname}?success=${encodeURIComponent(`Incidencia registrada: el objeto nº ${numeroObjeto} pasa a la lista negra.`)}`);
       } else {
-        return Astro.redirect(`${url.pathname}?error=${encodeURIComponent('Error al registrar la incidencia: faltan datos del préstamo.')}`);
+        return Astro.redirect(`${url.pathname}?error=${encodeURIComponent('Error al registrar la incidencia: faltan datos.')}`);
       }
     }
-
     // 5. ACTUALIZAR STOCK MANUAL
     else if (action === 'actualizar_stock') {
       const materialId = Number(formData.get('material_id'));
@@ -375,26 +375,28 @@ if (Astro.request.method === 'POST') {
           }
         }
 
-        // 7. REGISTRAR INCIDENCIA MANUAL
-        else if (action === 'crear_incidencia') {
-          const alumno = String(formData.get('alumno') || '').trim();
-          const dni = String(formData.get('dni') || '').trim().toUpperCase();
-          const tipoElemento = String(formData.get('tipoElemento') || 'Sanción Manual').trim();
-          const motivo = String(formData.get('motivo') || '').trim();
+    // 7. REGISTRAR INCIDENCIA MANUAL
+    else if (action === 'crear_incidencia') {
+      const alumno = String(formData.get('alumno') || '').trim();
+      const telefono = String(formData.get('telefono') || '').trim();
+      const numeroObjeto = String(formData.get('numeroObjeto') || '').trim();
+      const tipoElemento = String(formData.get('tipoElemento') || 'Sanción Manual').trim();
+      const motivo = String(formData.get('motivo') || '').trim();
 
-          if (alumno && dni && motivo) {
-            await db.insert(Incidencias).values({
-              alumno,
-              dni,
-              tipoElemento,
-              motivo,
-              fechaRegistro: new Date(),
-            });
-            return Astro.redirect(`${url.pathname}?success=${encodeURIComponent('Sanción añadida a la lista negra.')}`);
-          } else {
-            return Astro.redirect(`${url.pathname}?error=${encodeURIComponent('Por favor, completa los campos requeridos.')}`);
-          }
-        }
+      if (alumno && telefono && motivo) {
+        await db.insert(Incidencias).values({
+          alumno,
+          telefono,
+          numeroObjeto,
+          tipoElemento,
+          motivo,
+          fechaRegistro: new Date(),
+        });
+        return Astro.redirect(`${url.pathname}?success=${encodeURIComponent('Sanción añadida a la lista negra.')}`);
+      } else {
+        return Astro.redirect(`${url.pathname}?error=${encodeURIComponent('Por favor, completa los campos requeridos (Alumno, Teléfono y Motivo).')}`);
+      }
+    }
 
         // 8. RESOLVER INCIDENCIA
         else if (action === 'resolver_incidencia') {
@@ -494,763 +496,750 @@ if (Astro.request.method === 'POST') {
 
     {mensajeExito && <div class="alert alert-success" role="alert">✅ {mensajeExito}</div>}
     {mensajeError && <div class="alert alert-danger" role="alert">❌ {mensajeError}</div>}
+    
+    <!-- ========================================== -->
+    <!-- CONTENEDOR FLEX PRINCIPAL CON BARRA STICKY -->
+    <!-- ========================================== -->
+    <div class="admin-layout-wrapper" style="display: flex; gap: 1.5rem; position: relative; align-items: flex-start; margin-top: 1.5rem;">
 
-    <!-- MÉTRICAS -->
-    <div class="metrics-grid">
-      <div class="metric-card">
-        <span class="metric-icon">📰</span>
-        <div class="metric-info">
-          <h3>{noticias.length}</h3>
-          <p>Noticias / Avisos</p>
+      <!-- BARRA LATERAL STICKY CON ICONOS DE ACCESO RÁPIDO -->
+      <aside class="admin-sidebar" style="position: sticky; top: 6rem; min-width: 65px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 1rem 0.4rem; display: flex; flex-direction: column; gap: 0.8rem; align-items: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); z-index: 50;">
+        <a href="#sec-prestamos" title="Préstamos e Inventario" class="sidebar-icon-link">🥼</a>
+        <a href="#sec-noticias" title="Gestión de Noticias" class="sidebar-icon-link">📰</a>
+        <a href="#sec-incidencias" title="Lista Negra e Incidencias" class="sidebar-icon-link">⚠️</a>
+        <a href="#sec-custodiados" title="Objetos en Custodia" class="sidebar-icon-link">🔍</a>
+        <a href="#sec-reportes" title="Objetos Perdidos" class="sidebar-icon-link">📥</a>
+        <a href="#sec-agenda" title="Agenda Pública" class="sidebar-icon-link">📅</a>
+        <a href="#sec-normativa" title="Normativa y Guías" class="sidebar-icon-link">📚</a>
+        <a href="#sec-faq" title="Preguntas Frecuentes (FAQ)" class="sidebar-icon-link">❓</a>
+      </aside>
+
+      <!-- CONTENEDOR DERECHO QUE ENGLOBA MÉTRICAS Y TODO EL CONTENIDO -->
+      <div style="flex: 1; min-width: 0;">
+
+        <!-- MÉTRICAS -->
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <span class="metric-icon">📰</span>
+            <div class="metric-info">
+              <h3>{noticias.length}</h3>
+              <p>Noticias / Avisos</p>
+            </div>
+          </div>
+          <div class="metric-card">
+            <span class="metric-icon">🥼</span>
+            <div class="metric-info">
+              <h3>{prestamosActivosList.length}</h3>
+              <p>Préstamos Activos</p>
+            </div>
+          </div>
+          <div class="metric-card">
+            <span class="metric-icon">🔍</span>
+            <div class="metric-info">
+              <h3>{objetosList.filter(o => o.estado === 'En Custodia').length}</h3>
+              <p>Objetos en Custodia</p>
+            </div>
+          </div>
+          <div class="metric-card danger-card">
+            <span class="metric-icon">⚠️</span>
+            <div class="metric-info">
+              <h3>{incidenciasList.length}</h3>
+              <p>Incidencias / Lista Negra</p>
+            </div>
+          </div>
         </div>
-      </div>
-      <div class="metric-card">
-        <span class="metric-icon">🥼</span>
-        <div class="metric-info">
-          <h3>{prestamosActivosList.length}</h3>
-          <p>Préstamos Activos</p>
-        </div>
-      </div>
-      <div class="metric-card">
-        <span class="metric-icon">🔍</span>
-        <div class="metric-info">
-          <h3>{objetosList.filter(o => o.estado === 'En Custodia').length}</h3>
-          <p>Objetos en Custodia</p>
-        </div>
-      </div>
-      <div class="metric-card danger-card">
-        <span class="metric-icon">⚠️</span>
-        <div class="metric-info">
-          <h3>{incidenciasList.length}</h3>
-          <p>Incidencias / Lista Negra</p>
-        </div>
-      </div>
-    </div>
 
-    <div class="dashboard-grid">
+        <div class="dashboard-grid">
 
-      <!-- SECCIÓN 2: PRÉSTAMOS DE MATERIAL Y STOCK -->
-      <section class="admin-panel">
-        <h2>🥼 Nuevo Préstamo de Material</h2>
-        <p class="panel-desc">Registra un nuevo préstamo comprobando incidencias previas.</p>
+          <!-- SECCIÓN 2: PRÉSTAMOS DE MATERIAL Y STOCK -->
+          <section class="admin-panel" id="sec-prestamos">
+            <h2>🥼 Nuevo Préstamo de Material</h2>
+            <p class="panel-desc">Registra un nuevo préstamo introduciendo la numeración de la bata u objeto.</p>
 
-        <form method="POST" class="admin-form grid-form" style="margin-bottom: 2rem;">
-          <input type="hidden" name="action" value="solicitar_prestamo" />
+            <form method="POST" class="admin-form grid-form" style="margin-bottom: 2rem;">
+              <input type="hidden" name="action" value="solicitar_prestamo" />
 
-          <div class="form-group">
-            <label for="alumno_prestamo">Nombre del Estudiante</label>
-            <input type="text" id="alumno_prestamo" name="alumno" placeholder="Ej: María García" required autocomplete="off" />
-          </div>
+              <div class="form-group">
+                <label for="alumno_prestamo">Nombre del Estudiante</label>
+                <input type="text" id="alumno_prestamo" name="alumno" placeholder="Ej: María García" required autocomplete="off" />
+              </div>
 
-          <div class="form-group">
-            <label for="dni_prestamo">DNI</label>
-            <input type="text" id="dni_prestamo" name="dni" placeholder="Ej: 12345678X" required autocomplete="off" />
-          </div>
+              <div class="form-group">
+                <label for="telefono_prestamo">Teléfono de Contacto</label>
+                <input type="tel" id="telefono_prestamo" name="telefono" placeholder="Ej: 612345678" required autocomplete="off" />
+              </div>
 
-          <div class="form-group">
-            <label for="telefono_prestamo">Teléfono de Contacto</label>
-            <input type="tel" id="telefono_prestamo" name="telefono" placeholder="Ej: 612345678" required autocomplete="off" />
-          </div>
+              <div class="form-group">
+                <label for="numeroObjeto_prestamo">Nº de Objeto / Bata</label>
+                <input type="text" id="numeroObjeto_prestamo" name="numeroObjeto" placeholder="Ej: Bata #12" required autocomplete="off" />
+              </div>
 
-          <div class="form-group">
-            <label for="curso_prestamo">Curso / Titulación</label>
-            <input type="text" id="curso_prestamo" name="curso" placeholder="Ej: 2º Grado Informática" required autocomplete="off" />
-          </div>
+              <div class="form-group">
+                <label for="curso_prestamo">Curso / Titulación</label>
+                <input type="text" id="curso_prestamo" name="curso" placeholder="Ej: 2º Grado Informática" required autocomplete="off" />
+              </div>
 
-          <div class="form-group full-width">
-            <label for="tipoElemento_prestamo">Material Solicitado</label>
-            <select id="tipoElemento_prestamo" name="tipoElemento" required>
-              <option value="" disabled selected>-- Seleccionar Material --</option>
-              {prestamosList.map((mat) => (
-                <option value={mat.nombre} disabled={mat.disponibles <= 0}>
-                  {mat.icono} {mat.nombre} ({mat.disponibles} disponibles)
-                </option>
-              ))}
-            </select>
-          </div>
+              <div class="form-group full-width">
+                <label for="tipoElemento_prestamo">Material Solicitado</label>
+                <select id="tipoElemento_prestamo" name="tipoElemento" required>
+                  <option value="" disabled selected>-- Seleccionar Material --</option>
+                  {prestamosList.map((mat) => (
+                    <option value={mat.nombre} disabled={mat.disponibles <= 0}>
+                      {mat.icono} {mat.nombre} ({mat.disponibles} disponibles)
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-          <button type="submit" class="btn btn-primary full-width">Conceder Préstamo</button>
-        </form>
+              <button type="submit" class="btn btn-primary full-width">Conceder Préstamo</button>
+            </form>
 
-        <h3 class="subheading">Registro de Préstamos Activos En Curso</h3>
-        <div class="table-wrapper" style="margin-bottom: 2rem;">
-          <table class="admin-table">
-            <thead>
-              <tr>
-                <th>Estudiante</th>
-                <th>DNI</th>
-                <th>Teléfono</th>
-                <th>Curso</th>
-                <th>Material</th>
-                <th>Fecha y Hora</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {prestamosActivosList.length > 0 ? (
-                prestamosActivosList.map((p) => (
+            <h3 class="subheading">Registro de Préstamos Activos En Curso</h3>
+            <div class="table-wrapper" style="margin-bottom: 2rem;">
+              <table class="admin-table">
+                <thead>
                   <tr>
-                    <td data-label="Alumno"><strong>{p.alumno}</strong></td>
-                    <td data-label="DNI"><code>{p.dni}</code></td>
-                    <td data-label="Teléfono">{p.telefono || 'N/A'}</td>
-                    <td data-label="Curso"><span class="tag">{p.curso || 'N/A'}</span></td>
-                    <td data-label="Material"><strong>{p.tipoElemento}</strong></td>
-                    <td data-label="Fecha/Hora">{new Date(p.fechaPrestamo).toLocaleString('es-ES')}</td>
-                    <td data-label="Acciones" class="action-buttons-cell">
-                      <form method="POST" style="display:inline;">
-                        <input type="hidden" name="action" value="devolver_prestamo" />
-                        <input type="hidden" name="prestamo_id" value={p.id} />
-                        <input type="hidden" name="tipoElemento" value={p.tipoElemento} />
-                        <button type="submit" class="btn-success-sm">Marcar Devolución</button>
-                      </form>
-
-                      <form method="POST" style="display:inline;">
-                        <input type="hidden" name="action" value="marcar_incidencia_prestamo" />
-                        <input type="hidden" name="prestamo_id" value={p.id} />
-                        <input type="hidden" name="alumno" value={p.alumno} />
-                        <input type="hidden" name="dni" value={p.dni} />
-                        <input type="hidden" name="tipoElemento" value={p.tipoElemento} />
-                        <button 
-                          type="submit" 
-                          class="btn-incidencia-sm"
-                          onclick={`return confirm('¿Registrar incidencia de NO DEVUELTO para ${p.alumno}? Esto descontará 1 unidad del TOTAL del inventario.')`}
-                        >
-                          ⚠️ Marcar Incidencia
-                        </button>
-                      </form>
-                    </td>
+                    <th>Estudiante</th>
+                    <th>Teléfono</th>
+                    <th>Nº Objeto</th>
+                    <th>Curso</th>
+                    <th>Material</th>
+                    <th>Fecha y Hora</th>
+                    <th>Acciones</th>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colspan="7" class="empty-cell">No hay ningún préstamo activo en este momento.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody>
+                  {prestamosActivosList.length > 0 ? (
+                    prestamosActivosList.map((p) => (
+                      <tr>
+                        <td data-label="Alumno"><strong>{p.alumno}</strong></td>
+                        <td data-label="Teléfono">{p.telefono || 'N/A'}</td>
+                        <td data-label="Nº Objeto"><code>{p.numeroObjeto}</code></td>
+                        <td data-label="Curso"><span class="tag">{p.curso || 'N/A'}</span></td>
+                        <td data-label="Material"><strong>{p.tipoElemento}</strong></td>
+                        <td data-label="Fecha/Hora">{new Date(p.fechaPrestamo).toLocaleString('es-ES')}</td>
+                        <td data-label="Acciones" class="action-buttons-cell">
+                          <form method="POST" style="display:inline;">
+                            <input type="hidden" name="action" value="devolver_prestamo" />
+                            <input type="hidden" name="prestamo_id" value={p.id} />
+                            <input type="hidden" name="tipoElemento" value={p.tipoElemento} />
+                            <button type="submit" class="btn-success-sm">Marcar Devolución</button>
+                          </form>
 
-        <h3 class="subheading">Control de Inventario</h3>
-        <div class="table-wrapper">
-          <table class="admin-table">
-            <thead>
-              <tr>
-                <th>Material</th>
-                <th>Totales</th>
-                <th>Disponibles</th>
-                <th>Actualizar</th>
-              </tr>
-            </thead>
-            <tbody>
-              {prestamosList.map((mat) => (
-                <tr>
-                  <td data-label="Material">{mat.icono} <strong>{mat.nombre}</strong></td>
-                  <form method="POST">
-                    <input type="hidden" name="action" value="actualizar_stock" />
-                    <input type="hidden" name="material_id" value={mat.id} />
-                    <td data-label="Totales">
-                      <input type="number" name="total" value={mat.total} min="0" class="input-inline" required />
-                    </td>
-                    <td data-label="Disponibles">
-                      <input type="number" name="disponibles" value={mat.disponibles} min="0" class="input-inline" required />
-                    </td>
-                    <td data-label="Actualizar">
-                      <button type="submit" class="btn-secondary-sm">Guardar</button>
-                    </td>
-                  </form>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+                          <form method="POST" style="display:inline;">
+                            <input type="hidden" name="action" value="marcar_incidencia_prestamo" />
+                            <input type="hidden" name="prestamo_id" value={p.id} />
+                            <input type="hidden" name="alumno" value={p.alumno} />
+                            <input type="hidden" name="telefono" value={p.telefono} />
+                            <input type="hidden" name="numeroObjeto" value={p.numeroObjeto} />
+                            <input type="hidden" name="tipoElemento" value={p.tipoElemento} />
+                            <button 
+                              type="submit" 
+                              class="btn-incidencia-sm"
+                              onclick={`return confirm('¿Registrar incidencia de NO DEVUELTO para ${p.alumno} con objeto nº ${p.numeroObjeto}? Esto descontará 1 unidad del TOTAL.')`}
+                            >
+                              ⚠️ Marcar Incidencia
+                            </button>
+                          </form>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colspan="7" class="empty-cell">No hay ningún préstamo activo en este momento.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
 
-    <!-- SECCIÓN 1: GESTIÓN DE NOTICIAS -->
-    <section class="admin-panel">
-      <h2>📢 Crear Noticia o Aviso</h2>
-      
-      <form method="POST" class="admin-form">
-        <input type="hidden" name="action" value="crear_noticia" />
+          <!-- SECCIÓN 1: GESTIÓN DE NOTICIAS -->
+          <section class="admin-panel" id="sec-noticias">
+            <h2>📢 Crear Noticia o Aviso</h2>
+            
+            <form method="POST" class="admin-form">
+              <input type="hidden" name="action" value="crear_noticia" />
 
-        <!-- Título y Subtítulo en fila -->
-        <div class="form-row">
-          <div class="form-group flex-2">
-            <label for="titulo">Título de la noticia/aviso *</label>
-            <input type="text" id="titulo" name="titulo" required placeholder="Ej: Horario especial de exámenes" autocomplete="off" />
-          </div>
+              <div class="form-row">
+                <div class="form-group flex-2">
+                  <label for="titulo">Título de la noticia/aviso *</label>
+                  <input type="text" id="titulo" name="titulo" required placeholder="Ej: Horario especial de exámenes" autocomplete="off" />
+                </div>
 
-          <div class="form-group flex-1">
-            <label for="categoria">Categoría</label>
-            <select id="categoria" name="categoria">
-              <option value="General" selected>Noticia General</option>
-              <option value="Becas">Becas / Ayudas</option>
-              <option value="Eventos">Evento / Actividad</option>
-              <option value="Académico">Académico</option>
-              <option value="Aviso">Aviso URGENTE</option>
-            </select>
-          </div>
-        </div>
+                <div class="form-group flex-1">
+                  <label for="categoria">Categoría</label>
+                  <select id="categoria" name="categoria">
+                    <option value="General" selected>Noticia General</option>
+                    <option value="Becas">Becas / Ayudas</option>
+                    <option value="Eventos">Evento / Actividad</option>
+                    <option value="Académico">Académico</option>
+                    <option value="Aviso">Aviso URGENTE</option>
+                  </select>
+                </div>
+              </div>
 
-        <div class="form-group">
-          <label for="subtitulo">Subtítulo (Opcional)</label>
-          <input type="text" id="subtitulo" name="subtitulo" placeholder="Ej: Se amplía la apertura de la biblioteca hasta las 22:00" autocomplete="off" />
-        </div>
+              <div class="form-group">
+                <label for="subtitulo">Subtítulo (Opcional)</label>
+                <input type="text" id="subtitulo" name="subtitulo" placeholder="Ej: Se amplía la apertura de la biblioteca hasta las 22:00" autocomplete="off" />
+              </div>
 
-        <!-- Resumen, URL de Imagen y Selección de Encuadre -->
-        <div class="form-row">
-          <div class="form-group flex-2">
-            <label for="resumen">Resumen corto (Opcional)</label>
-            <input type="text" id="resumen" name="resumen" placeholder="Texto breve que aparecerá en la tarjeta de la portada" />
-          </div>
-        </div>
+              <div class="form-row">
+                <div class="form-group flex-2">
+                  <label for="resumen">Resumen corto (Opcional)</label>
+                  <input type="text" id="resumen" name="resumen" placeholder="Texto breve que aparecerá en la tarjeta de la portada" />
+                </div>
+              </div>
 
-        <div class="form-row">
-          <div class="form-group flex-2">
-            <label for="urlImagen">URL Imagen de portada (Opcional)</label>
-            <input type="url" id="urlImagen" name="urlImagen" placeholder="https://ejemplo.com/imagen.jpg" />
-          </div>
+              <div class="form-row">
+                <div class="form-group flex-2">
+                  <label for="urlImagen">URL Imagen de portada (Opcional)</label>
+                  <input type="url" id="urlImagen" name="urlImagen" placeholder="https://ejemplo.com/imagen.jpg" />
+                </div>
 
-          <!-- SELECCIÓN DEL ENCUADRE DE LA FOTO -->
-          <div class="form-group flex-1">
-            <label for="posicionImagen">Encuadre de la foto</label>
-            <select id="posicionImagen" name="posicionImagen">
-              <option value="center" selected>Centrado (Por defecto)</option>
-              <option value="top">Enfocar Arriba</option>
-              <option value="bottom">Enfocar Abajo</option>
-              <option value="left">Enfocar Izquierda</option>
-              <option value="right">Enfocar Derecha</option>
-            </select>
-          </div>
-        </div>
+                <div class="form-group flex-1">
+                  <label for="posicionImagen">Encuadre de la foto</label>
+                  <select id="posicionImagen" name="posicionImagen">
+                    <option value="center" selected>Centrado (Por defecto)</option>
+                    <option value="top">Enfocar Arriba</option>
+                    <option value="bottom">Enfocar Abajo</option>
+                    <option value="left">Enfocar Izquierda</option>
+                    <option value="right">Enfocar Derecha</option>
+                  </select>
+                </div>
+              </div>
 
-        <!-- Contenido Principal -->
-        <div class="form-group">
-          <label for="contenido">Contenido Completo *</label>
-          <textarea id="contenido" name="contenido" rows="5" required placeholder="Escribe aquí el texto completo de la noticia..."></textarea>
-        </div>
+              <div class="form-group">
+                <label for="contenido">Contenido Completo *</label>
+                <textarea id="contenido" name="contenido" rows="5" required placeholder="Escribe aquí el texto completo de la noticia..."></textarea>
+              </div>
 
-        <!-- Checkbox Urgente / Destacada -->
-        <div class="form-group-checkbox">
-          <label class="checkbox-label">
-            <input type="checkbox" id="destacada" name="destacada" value="on" />
-            <span>Marcar como noticia <strong>destacada / urgente</strong></span>
-          </label>
-        </div>
+              <div class="form-group-checkbox">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="destacada" name="destacada" value="on" />
+                  <span>Marcar como noticia <strong>destacada / urgente</strong></span>
+                </label>
+              </div>
 
-        <button type="submit" class="btn btn-primary">Publicar Noticia</button>
-      </form>
+              <button type="submit" class="btn btn-primary">Publicar Noticia</button>
+            </form>
 
-      <h3 class="subheading">Noticias Publicadas</h3>
-      
-      <div class="table-wrapper">
-        <table class="admin-table">
-          <thead>
-            <tr>
-              <th>Título</th>
-              <th>Categoría</th>
-              <th>Fecha</th>
-              <th>Destacada</th>
-              <th>Acción</th>
-            </tr>
-          </thead>
-          <tbody>
-            {noticias.length > 0 ? (
-              noticias.map((n) => (
-                <tr>
-                  <td data-label="Título">
-                    <strong>{n.titulo}</strong>
-                  </td>
-                  <td data-label="Categoría">
-                    <span class="tag">{n.categoria}</span>
-                  </td>
-                  <td data-label="Fecha">
-                    {new Date(n.fechaPublicacion).toLocaleDateString('es-ES', {
-                      day: '2-digit',
-                      month: '2-digit',
-                      year: 'numeric'
-                    })}
-                  </td>
-                  <td data-label="Destacada">
-                    {n.destacada ? (
-                      <span class="badge-urgent">SÍ</span>
-                    ) : (
-                      <span class="badge-normal">No</span>
-                    )}
-                  </td>
-                  <td data-label="Acción">
-                    <form method="POST" style="display:inline;">
-                      <input type="hidden" name="action" value="eliminar_noticia" />
-                      <input type="hidden" name="noticia_id" value={n.id} />
-                      <button type="submit" class="btn-danger-sm" onclick="return confirm('¿Seguro que deseas eliminar esta noticia?')">
-                        Eliminar
-                      </button>
-                    </form>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colspan="5" class="empty-cell">No hay noticias publicadas por el momento.</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </section>
+            <h3 class="subheading">Noticias Publicadas</h3>
+            
+            <div class="table-wrapper">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Título</th>
+                    <th>Categoría</th>
+                    <th>Fecha</th>
+                    <th>Destacada</th>
+                    <th>Acción</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {noticias.length > 0 ? (
+                    noticias.map((n) => (
+                      <tr>
+                        <td data-label="Título">
+                          <strong>{n.titulo}</strong>
+                        </td>
+                        <td data-label="Categoría">
+                          <span class="tag">{n.categoria}</span>
+                        </td>
+                        <td data-label="Fecha">
+                          {new Date(n.fechaPublicacion).toLocaleDateString('es-ES', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric'
+                          })}
+                        </td>
+                        <td data-label="Destacada">
+                          {n.destacada ? (
+                            <span class="badge-urgent">SÍ</span>
+                          ) : (
+                            <span class="badge-normal">No</span>
+                          )}
+                        </td>
+                        <td data-label="Acción">
+                          <form method="POST" style="display:inline;">
+                            <input type="hidden" name="action" value="eliminar_noticia" />
+                            <input type="hidden" name="noticia_id" value={n.id} />
+                            <button type="submit" class="btn-danger-sm" onclick="return confirm('¿Seguro que deseas eliminar esta noticia?')">
+                              Eliminar
+                            </button>
+                          </form>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colspan="5" class="empty-cell">No hay noticias publicadas por el momento.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
 
-
-      <!-- ==========================================
-          MÓDULO: GESTIÓN DE PREGUNTAS FRECUENTES (FAQ)
-          ========================================== -->
-      <div class="admin-panel" style="margin-top: 2rem;">
-        <h2>❓ Gestión de Preguntas Frecuentes (FAQ)</h2>
-        <p class="panel-desc">Añade o elimina las dudas comunes que ven los estudiantes en la página pública de ayuda.</p>
-        
-        <h3 class="subheading">Añadir Nueva Pregunta</h3>
-        <form method="POST" class="admin-form grid-form">
-          <input type="hidden" name="action" value="crear_faq" />
-          
-          <div class="form-group">
-            <label>Categoría</label>
-            <select name="categoria">
-              <option value="General">General</option>
-              <option value="Préstamos">Préstamos de Material</option>
-              <option value="Normativa">Normativa y Trámites</option>
-              <option value="Representación">Representación</option>
-            </select>
-          </div>
-
-          <div class="form-group full-width">
-            <label>Pregunta</label>
-            <input type="text" name="pregunta" required placeholder="Ej: ¿Dónde se encuentra la sala de la Delegación?" />
-          </div>
-
-          <div class="form-group full-width">
-            <label>Respuesta</label>
-            <textarea name="respuesta" rows="3" required placeholder="Escribe aquí la respuesta detallada..."></textarea>
-          </div>
-
-          <div class="full-width">
-            <button type="submit" class="btn btn-primary">Publicar Pregunta</button>
-          </div>
-        </form>
-
-        <h3 class="subheading">Preguntas Publicadas</h3>
-        <div class="table-wrapper">
-          <table class="admin-table">
-            <thead>
-              <tr>
-                <th>Categoría</th>
-                <th>Pregunta</th>
-                <th>Respuesta</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {faqsList.length === 0 ? (
-                <tr>
-                  <td colspan="4" class="empty-cell">No hay preguntas frecuentes registradas.</td>
-                </tr>
-              ) : null}
+          <!-- SECCIÓN 3: INCIDENCIAS / LISTA NEGRA -->
+          <section class="admin-panel" id="sec-incidencias">
+            <h2>⚠️ Incidencias / Lista Negra</h2>
+            <p class="panel-desc">Los teléfonos en esta lista tienen bloqueada la solicitud de nuevos préstamos.</p>
+            
+            <form method="POST" class="admin-form inline-form">
+              <input type="hidden" name="action" value="crear_incidencia" />
               
-              {faqsList.map((faq) => (
-                <tr>
-                  <td data-label="Categoría"><span class="tag">{faq.categoria}</span></td>
-                  <td data-label="Pregunta"><strong>{faq.pregunta}</strong></td>
-                  <td data-label="Respuesta">{faq.respuesta}</td>
-                  <td data-label="Acciones">
-                    <div class="action-buttons-cell">
-                      <form method="POST" onsubmit="return confirm('¿Seguro que quieres eliminar esta pregunta?');" style="margin: 0;">
-                        <input type="hidden" name="action" value="eliminar_faq" />
-                        <input type="hidden" name="faq_id" value={faq.id} />
-                        <button type="submit" class="btn-danger-sm" title="Eliminar pregunta">Borrar</button>
-                      </form>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <!-- SECCIÓN 3: INCIDENCIAS / LISTA NEGRA -->
-      <section class="admin-panel">
-        <h2>⚠️ Incidencias / Lista Negra</h2>
-        <p class="panel-desc">Los Estudiantes en esta lista tienen restringida la solicitud de nuevos préstamos de material.</p>
-        
-        <form method="POST" class="admin-form inline-form">
-          <input type="hidden" name="action" value="crear_incidencia" />
-          
-          <div class="form-group">
-            <input type="text" name="alumno" placeholder="Nombre alumno" required autocomplete="off" />
-          </div>
-          <div class="form-group">
-            <input type="text" name="dni" placeholder="DNI" required autocomplete="off" />
-          </div>
-          <div class="form-group">
-            <input type="text" name="tipoElemento" placeholder="Motivo/Material" required autocomplete="off" />
-          </div>
-          <div class="form-group">
-            <input type="text" name="motivo" placeholder="Descripción detallada" required autocomplete="off" />
-          </div>
-          <button type="submit" class="btn btn-danger">Añadir Sanción</button>
-        </form>
+              <div class="form-group">
+                <input type="text" name="alumno" placeholder="Nombre alumno" required autocomplete="off" />
+              </div>
+              <div class="form-group">
+                <input type="text" name="telefono" placeholder="Teléfono" required autocomplete="off" />
+              </div>
+              <div class="form-group">
+                <input type="text" name="numeroObjeto" placeholder="Nº Objeto / Bata (Opcional)" autocomplete="off" />
+              </div>
+              <div class="form-group">
+                <input type="text" name="tipoElemento" placeholder="Motivo/Material" required autocomplete="off" />
+              </div>
+              <div class="form-group">
+                <input type="text" name="motivo" placeholder="Descripción detallada" required autocomplete="off" />
+              </div>
+              <button type="submit" class="btn btn-danger">Añadir Sanción</button>
+            </form>
 
-        <h3 class="subheading">Registro de Sanciones e Incidencias</h3>
-        <div class="table-wrapper">
-          <table class="admin-table">
-            <thead>
-              <tr>
-                <th>Estudiante</th>
-                <th>DNI</th>
-                <th>Afecta / Motivo</th>
-                <th>Detalles</th>
-                <th>Fecha Registro</th>
-                <th>Acción</th>
-              </tr>
-            </thead>
-            <tbody>
-              {incidenciasList.length > 0 ? (
-                incidenciasList.map((inc) => (
+            <h3 class="subheading">Registro de Sanciones e Incidencias</h3>
+            <div class="table-wrapper">
+              <table class="admin-table">
+                <thead>
                   <tr>
-                    <td data-label="Alumno"><strong>{inc.alumno}</strong></td>
-                    <td data-label="DNI"><code>{inc.dni}</code></td>
-                    <td data-label="Afecta"><span class="tag tag-warning">{inc.tipoElemento}</span></td>
-                    <td data-label="Detalles">{inc.motivo}</td>
-                    <td data-label="Fecha">{new Date(inc.fechaRegistro).toLocaleDateString('es-ES')}</td>
-                    <td data-label="Acción">
-                      <form method="POST" style="display:inline;">
-                        <input type="hidden" name="action" value="resolver_incidencia" />
-                        <input type="hidden" name="incidencia_id" value={inc.id} />
-                        <button type="submit" class="btn-success-sm" onclick="return confirm('¿Retirar sanción?')">Resolver / Quitar</button>
-                      </form>
-                    </td>
+                    <th>Estudiante</th>
+                    <th>Teléfono</th>
+                    <th>Nº Objeto</th>
+                    <th>Afecta / Motivo</th>
+                    <th>Detalles</th>
+                    <th>Fecha Registro</th>
+                    <th>Acción</th>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colspan="6" class="empty-cell">No hay ningún Estudiante en la lista negra.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+                </thead>
+                <tbody>
+                  {incidenciasList.length > 0 ? (
+                    incidenciasList.map((inc) => (
+                      <tr>
+                        <td data-label="Alumno"><strong>{inc.alumno}</strong></td>
+                        <td data-label="Teléfono">{inc.telefono}</td>
+                        <td data-label="Nº Objeto"><code>{inc.numeroObjeto || 'N/A'}</code></td>
+                        <td data-label="Afecta"><span class="tag tag-warning">{inc.tipoElemento}</span></td>
+                        <td data-label="Detalles">{inc.motivo}</td>
+                        <td data-label="Fecha">{new Date(inc.fechaRegistro).toLocaleDateString('es-ES')}</td>
+                        <td data-label="Acción">
+                          <form method="POST" style="display:inline;">
+                            <input type="hidden" name="action" value="resolver_incidencia" />
+                            <input type="hidden" name="incidencia_id" value={inc.id} />
+                            <button type="submit" class="btn-success-sm" onclick="return confirm('¿Retirar sanción?')">Resolver / Quitar</button>
+                          </form>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colspan="7" class="empty-cell">No hay ningún registro en la lista negra.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
 
-<!-- SECCIÓN 4: OBJETOS EN CUSTODIA (INVENTARIO SEDE) -->
-      <section class="admin-panel">
-        <h2>🔍 Objetos en Custodia en Sede</h2>
-        <p class="panel-desc">Registra nuevos objetos encontrados en la facultad y gestiona su entrega.</p>
+          <!-- SECCIÓN 4: OBJETOS EN CUSTODIA (INVENTARIO SEDE) -->
+          <section class="admin-panel" id="sec-custodiados">
+            <h2>🔍 Objetos en Custodia en Sede</h2>
+            <p class="panel-desc">Registra nuevos objetos encontrados en la facultad y gestiona su entrega.</p>
 
-        <form method="POST" class="admin-form inline-form" style="margin-bottom: 2rem;">
-          <input type="hidden" name="action" value="crear_objeto" />
+            <form method="POST" class="admin-form inline-form" style="margin-bottom: 2rem;">
+              <input type="hidden" name="action" value="crear_objeto" />
 
-          <div class="form-group">
-            <input type="text" name="objeto" placeholder="Objeto (ej: Mochila, Llaves)" required autocomplete="off" />
-          </div>
-          <div class="form-group">
-            <input type="text" name="lugar" placeholder="Lugar hallado (ej: Aula A1.12)" required autocomplete="off" />
-          </div>
-          <div class="form-group">
-            <input type="text" name="rasgos" placeholder="Rasgos característicos (ej: Pegatina de Linux, color azul)" autocomplete="off" />
-          </div>
-          <button type="submit" class="btn btn-primary">Registrar Objeto</button>
-        </form>
+              <div class="form-group">
+                <input type="text" name="objeto" placeholder="Objeto (ej: Mochila, Llaves)" required autocomplete="off" />
+              </div>
+              <div class="form-group">
+                <input type="text" name="lugar" placeholder="Lugar hallado (ej: Aula A1.12)" required autocomplete="off" />
+              </div>
+              <div class="form-group">
+                <input type="text" name="rasgos" placeholder="Rasgos característicos (ej: Pegatina de Linux, color azul)" autocomplete="off" />
+              </div>
+              <button type="submit" class="btn btn-primary">Registrar Objeto</button>
+            </form>
 
-        <h3 class="subheading">Objetos Guardados en Oficina</h3>
-        <div class="table-wrapper">
-          <table class="admin-table">
-            <thead>
-              <tr>
-                <th>Objeto</th>
-                <th>Lugar Encontrado</th>
-                <th>Fecha Recepción</th>
-                <th>Rasgos Característicos</th>
-                <th>Estado</th>
-                <th>Acción</th>
-              </tr>
-            </thead>
-            <tbody>
-              {objetosList.length > 0 ? (
-                objetosList.map((obj) => (
+            <h3 class="subheading">Objetos Guardados en Oficina</h3>
+            <div class="table-wrapper">
+              <table class="admin-table">
+                <thead>
                   <tr>
-                    <td data-label="Objeto"><strong>{obj.objeto}</strong></td>
-                    <td data-label="Lugar">{obj.lugar}</td>
-                    <td data-label="Fecha">{new Date(obj.fechaRecepcion).toLocaleDateString('es-ES')}</td>
-                    <td data-label="Rasgos">{obj.rasgos || 'Sin detalles'}</td>
-                    <td data-label="Estado">
-                      <span class={`status-pill ${obj.estado === 'En Custodia' ? 'pill-warning' : 'pill-success'}`}>
-                        {obj.estado}
-                      </span>
-                    </td>
-                    <td data-label="Acción">
-                      {obj.estado === 'En Custodia' && (
-                        <form method="POST" style="display:inline;">
-                          <input type="hidden" name="action" value="actualizar_objeto" />
-                          <input type="hidden" name="objeto_id" value={obj.id} />
-                          <input type="hidden" name="estado" value="Devuelto" />
-                          <button type="submit" class="btn-success-sm">Marcar Devuelto</button>
-                        </form>
-                      )}
-                    </td>
+                    <th>Objeto</th>
+                    <th>Lugar Encontrado</th>
+                    <th>Fecha Recepción</th>
+                    <th>Rasgos Característicos</th>
+                    <th>Estado</th>
+                    <th>Acción</th>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colspan="6" class="empty-cell">No se registran objetos en custodia.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+                </thead>
+                <tbody>
+                  {objetosList.length > 0 ? (
+                    objetosList.map((obj) => (
+                      <tr>
+                        <td data-label="Objeto"><strong>{obj.objeto}</strong></td>
+                        <td data-label="Lugar">{obj.lugar}</td>
+                        <td data-label="Fecha">{new Date(obj.fechaRecepcion).toLocaleDateString('es-ES')}</td>
+                        <td data-label="Rasgos">{obj.rasgos || 'Sin detalles'}</td>
+                        <td data-label="Estado">
+                          <span class={`status-pill ${obj.estado === 'En Custodia' ? 'pill-warning' : 'pill-success'}`}>
+                            {obj.estado}
+                          </span>
+                        </td>
+                        <td data-label="Acción">
+                          {obj.estado === 'En Custodia' && (
+                            <form method="POST" style="display:inline;">
+                              <input type="hidden" name="action" value="actualizar_objeto" />
+                              <input type="hidden" name="objeto_id" value={obj.id} />
+                              <input type="hidden" name="estado" value="Devuelto" />
+                              <button type="submit" class="btn-success-sm">Marcar Devuelto</button>
+                            </form>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colspan="6" class="empty-cell">No se registran objetos en custodia.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
 
-      <!-- SECCIÓN 5: SOLICITUDES DE OBJETOS BUSCADOS POR Estudiantes -->
-      <section class="admin-panel" style="margin-top: 2rem;">
-        <h2>📥 Solicitudes de Objetos Perdidos por Estudiantes</h2>
-        <p class="panel-desc">Comprueba si alguna solicitud recibida desde la página de Servicios coincide con un objeto custodiado.</p>
+          <!-- SECCIÓN 5: SOLICITUDES DE OBJETOS BUSCADOS POR ESTUDIANTES -->
+          <section class="admin-panel" id="sec-reportes" style="margin-top: 2rem;">
+            <h2>📥 Solicitudes de Objetos Perdidos por Estudiantes</h2>
+            <p class="panel-desc">Comprueba si alguna solicitud recibida desde la página de Servicios coincide con un objeto custodiado.</p>
 
-        <div class="table-wrapper">
-          <table class="admin-table">
-            <thead>
-              <tr>
-                <th>Estudiante</th>
-                <th>Teléfono</th>
-                <th>Objeto Buscado</th>
-                <th>Lugar Pérdida</th>
-                <th>Fecha Pérdida</th>
-                <th>Rasgos</th>
-                <th>Fecha Solicitud</th>
-                <th>Estado</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {reportesList.length > 0 ? (
-                reportesList.map((rep) => (
+            <div class="table-wrapper">
+              <table class="admin-table">
+                <thead>
                   <tr>
-                    <td data-label="Alumno"><strong>{rep.nombreAlumno}</strong></td>
-                    <td data-label="Teléfono">
-                      <a href={`tel:${rep.telefono}`} style="color: #1e88e5; text-decoration: underline;">
-                        📞 {rep.telefono}
-                      </a>
-                    </td>
-                    <td data-label="Objeto Buscado">{rep.objeto}</td>
-                    <td data-label="Lugar">{rep.lugar || 'No indicado'}</td>
-                    <td data-label="Fecha Pérdida">{rep.fechaPerdida || 'No indicada'}</td>
-                    <td data-label="Rasgos">{rep.rasgos || 'Sin detalles'}</td>
-                    <td data-label="Fecha Solicitud">{new Date(rep.fechaReporte).toLocaleDateString('es-ES')}</td>
-                    <td data-label="Estado">
-                      <span class={`status-pill ${rep.estado === 'Pendiente' ? 'pill-danger' : rep.estado === 'Contactado' ? 'pill-warning' : 'pill-success'}`}>
-                        {rep.estado}
-                      </span>
-                    </td>
-                    <td data-label="Acciones">
-                      <form method="POST" style="display:inline-block; margin-right: 0.3rem;">
-                        <input type="hidden" name="action" value="actualizar_estado_reporte" />
-                        <input type="hidden" name="reporte_id" value={rep.id} />
-                        <select name="nuevo_estado" onchange="this.form.submit()" style="padding: 0.2rem 0.4rem; font-size: 0.8rem; border-radius: 4px; border: 1px solid #cbd5e1;">
-                          <option value="Pendiente" selected={rep.estado === 'Pendiente'}>Pendiente</option>
-                          <option value="Contactado" selected={rep.estado === 'Contactado'}>Contactado</option>
-                          <option value="Resuelto" selected={rep.estado === 'Resuelto'}>Resuelto</option>
-                        </select>
-                      </form>
-
-                      <form method="POST" style="display:inline-block;">
-                        <input type="hidden" name="action" value="eliminar_reporte" />
-                        <input type="hidden" name="reporte_id" value={rep.id} />
-                        <button type="submit" class="btn-danger-sm" onclick="return confirm('¿Eliminar esta solicitud?')">
-                          Eliminar
-                        </button>
-                      </form>
-                    </td>
+                    <th>Estudiante</th>
+                    <th>Teléfono</th>
+                    <th>Objeto Buscado</th>
+                    <th>Lugar Pérdida</th>
+                    <th>Fecha Pérdida</th>
+                    <th>Rasgos</th>
+                    <th>Fecha Solicitud</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colspan="9" class="empty-cell">No hay solicitudes de objetos perdidos registradas.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
-      <!-- ==========================================
-     MÓDULO: GESTIÓN DE AGENDA
-     ========================================== -->
-      <div class="admin-panel">
-        <h2>📅 Gestión de Agenda Pública</h2>
-        <p class="panel-desc">Añade o elimina eventos visibles en la agenda pública de la web.</p>
-        
-        <h3 class="subheading">Añadir Nuevo Evento</h3>
-        <form method="POST" class="admin-form grid-form">
-          <input type="hidden" name="action" value="crear_evento" />
-          
-          <div class="form-group full-width">
-            <label>Título del Evento</label>
-            <input type="text" name="titulo" required placeholder="Ej: Pleno Extraordinario CADUS" />
-          </div>
-          
-          <div class="form-group">
-            <label>Tipo de Evento</label>
-            <select name="tipo">
-              <option value="Junta de Escuela">Junta de Escuela</option>
-              <option value="CADUS">CADUS</option>
-              <option value="Sectorial">Sectoriales</option>
-              <option value="Trabajo Interno">Trabajo Interno</option>
-            </select>
-          </div>
+                </thead>
+                <tbody>
+                  {reportesList.length > 0 ? (
+                    reportesList.map((rep) => (
+                      <tr>
+                        <td data-label="Alumno"><strong>{rep.nombreAlumno}</strong></td>
+                        <td data-label="Teléfono">
+                          <a href={`tel:${rep.telefono}`} style="color: #1e88e5; text-decoration: underline;">
+                            📞 {rep.telefono}
+                          </a>
+                        </td>
+                        <td data-label="Objeto Buscado">{rep.objeto}</td>
+                        <td data-label="Lugar">{rep.lugar || 'No indicado'}</td>
+                        <td data-label="Fecha Pérdida">{rep.fechaPerdida || 'No indicada'}</td>
+                        <td data-label="Rasgos">{rep.rasgos || 'Sin detalles'}</td>
+                        <td data-label="Fecha Solicitud">{new Date(rep.fechaReporte).toLocaleDateString('es-ES')}</td>
+                        <td data-label="Estado">
+                          <span class={`status-pill ${rep.estado === 'Pendiente' ? 'pill-danger' : rep.estado === 'Contactado' ? 'pill-warning' : 'pill-success'}`}>
+                            {rep.estado}
+                          </span>
+                        </td>
+                        <td data-label="Acciones">
+                          <form method="POST" style="display:inline-block; margin-right: 0.3rem;">
+                            <input type="hidden" name="action" value="actualizar_estado_reporte" />
+                            <input type="hidden" name="reporte_id" value={rep.id} />
+                            <select name="nuevo_estado" onchange="this.form.submit()" style="padding: 0.2rem 0.4rem; font-size: 0.8rem; border-radius: 4px; border: 1px solid #cbd5e1;">
+                              <option value="Pendiente" selected={rep.estado === 'Pendiente'}>Pendiente</option>
+                              <option value="Contactado" selected={rep.estado === 'Contactado'}>Contactado</option>
+                              <option value="Resuelto" selected={rep.estado === 'Resuelto'}>Resuelto</option>
+                            </select>
+                          </form>
 
-          <div class="form-group">
-            <label>Fecha</label>
-            <input type="date" name="fecha" required />
-          </div>
+                          <form method="POST" style="display:inline-block;">
+                            <input type="hidden" name="action" value="eliminar_reporte" />
+                            <input type="hidden" name="reporte_id" value={rep.id} />
+                            <button type="submit" class="btn-danger-sm" onclick="return confirm('¿Eliminar esta solicitud?')">
+                              Eliminar
+                            </button>
+                          </form>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colspan="9" class="empty-cell">No hay solicitudes de objetos perdidos registradas.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
 
-          <div class="form-group">
-            <label>Hora (Opcional)</label>
-            <input type="text" name="horaInicio" placeholder="Ej: 16:30 - 18:00" />
-          </div>
-
-          <div class="form-group">
-            <label>Lugar</label>
-            <input type="text" name="lugar" placeholder="Ej: Salón de Grados" />
-          </div>
-
-          <div class="form-group full-width">
-            <label>Breve Descripción</label>
-            <textarea name="descripcion" rows="2"></textarea>
-          </div>
-
-          <div class="full-width">
-            <button type="submit" class="btn btn-primary">Publicar Evento</button>
-          </div>
-        </form>
-
-        <h3 class="subheading">Eventos Programados</h3>
-        <div class="table-wrapper">
-          <table class="admin-table">
-            <thead>
-              <tr>
-                <th>Título del Evento</th>
-                <th>Tipo</th>
-                <th>Fecha</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {listaEventos.length === 0 ? (
-                <tr>
-                  <td colspan="4" class="empty-cell">No hay eventos en la agenda.</td>
-                </tr>
-              ) : null}
+          <!-- MÓDULO: GESTIÓN DE AGENDA -->
+          <section class="admin-panel" id="sec-agenda">
+            <h2>📅 Gestión de Agenda Pública</h2>
+            <p class="panel-desc">Añade o elimina eventos visibles en la agenda pública de la web.</p>
+            
+            <h3 class="subheading">Añadir Nuevo Evento</h3>
+            <form method="POST" class="admin-form grid-form">
+              <input type="hidden" name="action" value="crear_evento" />
               
-              {listaEventos.map((ev) => (
-                <tr>
-                  <td data-label="Título">{ev.titulo}</td>
-                  <td data-label="Tipo"><span class="tag">{ev.tipo}</span></td>
-                  <td data-label="Fecha">{new Date(ev.fecha).toLocaleDateString('es-ES')}</td>
-                  <td data-label="Acciones">
-                    <div class="action-buttons-cell">
-                      <form method="POST" onsubmit="return confirm('¿Seguro que quieres eliminar este evento?');" style="margin: 0;">
-                        <input type="hidden" name="action" value="eliminar_evento" />
-                        <input type="hidden" name="evento_id" value={ev.id} />
-                        <button type="submit" class="btn-danger-sm" title="Eliminar evento">Borrar</button>
-                      </form>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- ==========================================
-          MÓDULO: GESTIÓN DE NORMATIVA Y DOCUMENTOS
-          ========================================== -->
-      <div class="admin-panel">
-        <h2>📚 Gestión de Normativa y Guías</h2>
-        <p class="panel-desc">Administra los documentos y enlaces públicos en el portal de normativa.</p>
-        
-        <h3 class="subheading">Añadir Nuevo Documento</h3>
-        <form method="POST" class="admin-form grid-form">
-          <input type="hidden" name="action" value="crear_documento" />
-          
-          <div class="form-group full-width">
-            <label>Título del Documento</label>
-            <input type="text" name="titulo" required placeholder="Ej: Normativa de Evaluación..." />
-          </div>
-          
-          <div class="form-group">
-            <label>Categoría</label>
-            <select name="categoria">
-              <option value="Estudiantes">Estudiantes</option>
-              <option value="Normativa General">Normativa General</option>
-              <option value="Guías y Ayudas">Guías y Ayudas</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label>Formato / Tamaño</label>
-            <input type="text" name="tamano" placeholder="Ej: PDF (2.4 MB) o Enlace Externo" />
-          </div>
-
-          <div class="form-group full-width">
-            <label>URL / Enlace de Descarga</label>
-            <input type="url" name="urlDescarga" required placeholder="https://..." />
-          </div>
-
-          <div class="form-group full-width">
-            <label>Descripción corta</label>
-            <textarea name="descripcion" rows="2"></textarea>
-          </div>
-
-          <div class="full-width">
-            <button type="submit" class="btn btn-primary">Añadir Documento</button>
-          </div>
-        </form>
-
-        <h3 class="subheading">Documentos Públicos</h3>
-        <div class="table-wrapper">
-          <table class="admin-table">
-            <thead>
-              <tr>
-                <th>Documento</th>
-                <th>Categoría</th>
-                <th>Formato</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {listaDocumentos.length === 0 ? (
-                <tr>
-                  <td colspan="4" class="empty-cell">No hay documentos subidos.</td>
-                </tr>
-              ) : null}
+              <div class="form-group full-width">
+                <label>Título del Evento</label>
+                <input type="text" name="titulo" required placeholder="Ej: Pleno Extraordinario CADUS" />
+              </div>
               
-              {listaDocumentos.map((doc) => (
-                <tr>
-                  <td data-label="Documento"><strong>{doc.titulo}</strong></td>
-                  <td data-label="Categoría"><span class="tag">{doc.categoria}</span></td>
-                  <td data-label="Formato">{doc.tamano || 'Externo'}</td>
-                  <td data-label="Acciones">
-                    <div class="action-buttons-cell">
-                      <form method="POST" onsubmit="return confirm('¿Seguro que quieres borrar este documento?');" style="margin: 0;">
-                        <input type="hidden" name="action" value="eliminar_documento" />
-                        <input type="hidden" name="documento_id" value={doc.id} />
-                        <button type="submit" class="btn-danger-sm" title="Eliminar documento">Borrar</button>
-                      </form>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </div>
+              <div class="form-group">
+                <label>Tipo de Evento</label>
+                <select name="tipo">
+                  <option value="Junta de Escuela">Junta de Escuela</option>
+                  <option value="CADUS">CADUS</option>
+                  <option value="Sectorial">Sectoriales</option>
+                  <option value="Trabajo Interno">Trabajo Interno</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label>Fecha</label>
+                <input type="date" name="fecha" required />
+              </div>
+
+              <div class="form-group">
+                <label>Hora (Opcional)</label>
+                <input type="text" name="horaInicio" placeholder="Ej: 16:30 - 18:00" />
+              </div>
+
+              <div class="form-group">
+                <label>Lugar</label>
+                <input type="text" name="lugar" placeholder="Ej: Salón de Grados" />
+              </div>
+
+              <div class="form-group full-width">
+                <label>Breve Descripción</label>
+                <textarea name="descripcion" rows="2"></textarea>
+              </div>
+
+              <div class="full-width">
+                <button type="submit" class="btn btn-primary">Publicar Evento</button>
+              </div>
+            </form>
+
+            <h3 class="subheading">Eventos Programados</h3>
+            <div class="table-wrapper">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Título del Evento</th>
+                    <th>Tipo</th>
+                    <th>Fecha</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {listaEventos.length === 0 ? (
+                    <tr>
+                      <td colspan="4" class="empty-cell">No hay eventos en la agenda.</td>
+                    </tr>
+                  ) : null}
+                  
+                  {listaEventos.map((ev) => (
+                    <tr>
+                      <td data-label="Título">{ev.titulo}</td>
+                      <td data-label="Tipo"><span class="tag">{ev.tipo}</span></td>
+                      <td data-label="Fecha">{new Date(ev.fecha).toLocaleDateString('es-ES')}</td>
+                      <td data-label="Acciones">
+                        <div class="action-buttons-cell">
+                          <form method="POST" onsubmit="return confirm('¿Seguro que quieres eliminar este evento?');" style="margin: 0;">
+                            <input type="hidden" name="action" value="eliminar_evento" />
+                            <input type="hidden" name="evento_id" value={ev.id} />
+                            <button type="submit" class="btn-danger-sm" title="Eliminar evento">Borrar</button>
+                          </form>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- MÓDULO: GESTIÓN DE NORMATIVA Y DOCUMENTOS -->
+          <section class="admin-panel" id="sec-normativa">
+            <h2>📚 Gestión de Normativa y Guías</h2>
+            <p class="panel-desc">Administra los documentos y enlaces públicos en el portal de normativa.</p>
+            
+            <h3 class="subheading">Añadir Nuevo Documento</h3>
+            <form method="POST" class="admin-form grid-form">
+              <input type="hidden" name="action" value="crear_documento" />
+              
+              <div class="form-group full-width">
+                <label>Título del Documento</label>
+                <input type="text" name="titulo" required placeholder="Ej: Normativa de Evaluación..." />
+              </div>
+              
+              <div class="form-group">
+                <label>Categoría</label>
+                <select name="categoria">
+                  <option value="Estudiantes">Estudiantes</option>
+                  <option value="Normativa General">Normativa General</option>
+                  <option value="Guías y Ayudas">Guías y Ayudas</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label>Formato / Tamaño</label>
+                <input type="text" name="tamano" placeholder="Ej: PDF (2.4 MB) o Enlace Externo" />
+              </div>
+
+              <div class="form-group full-width">
+                <label>URL / Enlace de Descarga</label>
+                <input type="url" name="urlDescarga" required placeholder="https://..." />
+              </div>
+
+              <div class="form-group full-width">
+                <label>Descripción corta</label>
+                <textarea name="descripcion" rows="2"></textarea>
+              </div>
+
+              <div class="full-width">
+                <button type="submit" class="btn btn-primary">Añadir Documento</button>
+              </div>
+            </form>
+
+            <h3 class="subheading">Documentos Públicos</h3>
+            <div class="table-wrapper">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Documento</th>
+                    <th>Categoría</th>
+                    <th>Formato</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {listaDocumentos.length === 0 ? (
+                    <tr>
+                      <td colspan="4" class="empty-cell">No hay documentos subidos.</td>
+                    </tr>
+                  ) : null}
+                  
+                  {listaDocumentos.map((doc) => (
+                    <tr>
+                      <td data-label="Documento"><strong>{doc.titulo}</strong></td>
+                      <td data-label="Categoría"><span class="tag">{doc.categoria}</span></td>
+                      <td data-label="Formato">{doc.tamano || 'Externo'}</td>
+                      <td data-label="Acciones">
+                        <div class="action-buttons-cell">
+                          <form method="POST" onsubmit="return confirm('¿Seguro que quieres borrar este documento?');" style="margin: 0;">
+                            <input type="hidden" name="action" value="eliminar_documento" />
+                            <input type="hidden" name="documento_id" value={doc.id} />
+                            <button type="submit" class="btn-danger-sm" title="Eliminar documento">Borrar</button>
+                          </form>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- MÓDULO: GESTIÓN DE PREGUNTAS FRECUENTES (FAQ) -->
+          <section class="admin-panel" id="sec-faq" style="margin-top: 2rem;">
+            <h2>❓ Gestión de Preguntas Frecuentes (FAQ)</h2>
+            <p class="panel-desc">Añade o elimina las dudas comunes que ven los estudiantes en la página pública de ayuda.</p>
+            
+            <h3 class="subheading">Añadir Nueva Pregunta</h3>
+            <form method="POST" class="admin-form grid-form">
+              <input type="hidden" name="action" value="crear_faq" />
+              
+              <div class="form-group">
+                <label>Categoría</label>
+                <select name="categoria">
+                  <option value="General">General</option>
+                  <option value="Préstamos">Préstamos de Material</option>
+                  <option value="Normativa">Normativa y Trámites</option>
+                  <option value="Representación">Representación</option>
+                </select>
+              </div>
+
+              <div class="form-group full-width">
+                <label>Pregunta</label>
+                <input type="text" name="pregunta" required placeholder="Ej: ¿Dónde se encuentra la sala de la Delegación?" />
+              </div>
+
+              <div class="form-group full-width">
+                <label>Respuesta</label>
+                <textarea name="respuesta" rows="3" required placeholder="Escribe aquí la respuesta detallada..."></textarea>
+              </div>
+
+              <div class="full-width">
+                <button type="submit" class="btn btn-primary">Publicar Pregunta</button>
+              </div>
+            </form>
+
+            <h3 class="subheading">Preguntas Publicadas</h3>
+            <div class="table-wrapper">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Categoría</th>
+                    <th>Pregunta</th>
+                    <th>Respuesta</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {faqsList.length === 0 ? (
+                    <tr>
+                      <td colspan="4" class="empty-cell">No hay preguntas frecuentes registradas.</td>
+                    </tr>
+                  ) : null}
+                  
+                  {faqsList.map((faq) => (
+                    <tr>
+                      <td data-label="Categoría"><span class="tag">{faq.categoria}</span></td>
+                      <td data-label="Pregunta"><strong>{faq.pregunta}</strong></td>
+                      <td data-label="Respuesta">{faq.respuesta}</td>
+                      <td data-label="Acciones">
+                        <div class="action-buttons-cell">
+                          <form method="POST" onsubmit="return confirm('¿Seguro que quieres eliminar esta pregunta?');" style="margin: 0;">
+                            <input type="hidden" name="action" value="eliminar_faq" />
+                            <input type="hidden" name="faq_id" value={faq.id} />
+                            <button type="submit" class="btn-danger-sm" title="Eliminar pregunta">Borrar</button>
+                          </form>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+        </div><!-- Cierre de dashboard-grid -->
+      </div><!-- Cierre del contenedor principal derecho (flex: 1) -->
+    </div><!-- Cierre de admin-layout-wrapper -->
+
+  </div><!-- Cierre de dashboard-container -->
 </Layout>
+
 
 <style>
   /* ==========================================================================
@@ -1259,13 +1248,92 @@ if (Astro.request.method === 'POST') {
   :root {
     font-size: 16px;
   }
+  
+html, body {
+  overflow-x: hidden; /* Evita desbordamientos laterales */
+  overflow-y: auto;   /* Permite el scroll natural de la página */
+  height: 100%;
+}
 
-  @media (max-width: 1024px) {
-    :root {
-      font-size: 15px; /* Reducción suave (~6%) para portátiles pequeños / tablets */
-    }
+.admin-layout-wrapper {
+  display: flex;
+  gap: 1.5rem;
+  position: relative;
+  align-items: flex-start; /* Vital para que el flexbox respete las alturas independientes */
+  margin-top: 1.5rem;
+  overflow: visible !important; /* Evita que se rompa el sticky */
+}
+
+.admin-sidebar {
+  position: -webkit-sticky; /* Compatibilidad con Safari escritorio */
+  position: sticky;
+  top: 10rem;
+  align-self: flex-start; /* Obliga a que la barra mida solo lo que ocupa su contenido y pueda flotar */
+  width: 65px;          /* Ancho fijo estricto para escritorio */
+  min-width: 65px;
+  max-width: 65px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 1rem 0.4rem;
+  display: flex;
+  flex-direction: column; /* Vertical en escritorio */
+  gap: 0.8rem;
+  align-items: center;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+  z-index: 50;
+  box-sizing: border-box;
+}
+
+.sidebar-icon-link {
+  font-size: 1.25rem;
+  padding: 0.55rem;
+  border-radius: 8px;
+  transition: background-color 0.2s, transform 0.2s;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+  
+.sidebar-icon-link:hover {
+  background-color: #f1f5f9;
+  transform: scale(1.1);
+}
+
+@media (max-width: 768px) {
+  .admin-layout-wrapper {
+    flex-direction: column;
+  }
+  
+  .admin-sidebar {
+    position: -webkit-sticky !important; /* Compatibilidad con Safari móvil */
+    position: sticky !important;         /* Fija la barra en la parte superior al hacer scroll en móvil */
+    top: 9rem !important;                /* Distancia desde arriba en pantallas pequeñas */
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: unset !important;
+    flex-direction: row !important;         /* Disposición horizontal de los iconos */
+    justify-content: flex-start !important; /* Alineados al inicio para permitir scroll fluido */
+    overflow-x: auto !important;            /* Habilita el desplazamiento horizontal si hay muchos iconos */
+    white-space: nowrap !important;         /* Evita que los iconos bajen de línea */
+    margin-bottom: 1.5rem;
+    padding: 0.6rem 1rem;
+    gap: 1rem;
+    background: #ffffff !important;         /* Fondo sólido obligatorio para que no transparente contenido */
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+    z-index: 100 !important;                /* Por encima de los elementos al flotar */
   }
 
+  /* Ocultar la barra de desplazamiento en móviles para un diseño más limpio */
+  .admin-sidebar::-webkit-scrollbar {
+    display: none;
+  }
+  .admin-sidebar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
   /* ESTILOS BASE DE DASHBOARD Y ELEMENTOS PEQUEÑOS */
   .btn-logout-sm {
     background-color: transparent;
